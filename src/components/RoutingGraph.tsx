@@ -63,12 +63,12 @@ export function RoutingGraph() {
       style: {
         background: '#5E81AC', // nord10 - blue
         color: '#ECEFF4', // nord6 - bright text
-        border: '2px solid #81A1C1', // nord9
+        border: '1px solid #4C566A', // nord3 - thin border
         borderRadius: '8px',
         fontSize: '16px',
         fontWeight: 'bold',
         width: 200,
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2)',
+        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
       },
     });
 
@@ -94,11 +94,11 @@ export function RoutingGraph() {
         style: {
           background: host.status === 'online' ? '#A3BE8C' : '#4C566A', // nord14 green or nord3 gray
           color: host.status === 'online' ? '#2E3440' : '#D8DEE9', // dark text on green, light text on gray
-          border: '2px solid rgba(0,0,0,0.3)',
+          border: '1px solid #4C566A', // nord3 - thin border
           borderRadius: '8px',
           padding: '8px',
           width: 150,
-          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2)',
+          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
         },
       });
 
@@ -140,11 +140,11 @@ export function RoutingGraph() {
           style: {
             background: instance.status === 'running' ? '#88C0D0' : '#434C5E', // nord8 cyan or nord2
             color: instance.status === 'running' ? '#2E3440' : '#D8DEE9', // dark or light text
-            border: '2px solid rgba(0,0,0,0.3)',
-            borderRadius: '6px',
+            border: '1px solid #4C566A', // nord3 - thin border
+            borderRadius: '8px',
             padding: '6px',
             width: 140,
-            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2)',
+            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
           },
         });
 
@@ -230,12 +230,12 @@ export function RoutingGraph() {
         style: {
           background: getStatusColor(request.status),
           color: '#ECEFF4', // nord6 - bright text
-          border: '2px solid rgba(0,0,0,0.3)',
+          border: '1px solid #4C566A', // nord3 - thin border
           borderRadius: '8px',
           padding: '12px',
           width: 240,
           minHeight: 100,
-          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2)',
+          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
         },
       });
 

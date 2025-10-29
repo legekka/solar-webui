@@ -175,7 +175,7 @@ export function AddInstanceModal({ hostId, hostName, onClose, onCreate }: AddIns
                 onChange={handleChange}
                 min="0"
                 max="2"
-                step="0.1"
+                step="0.01"
                 className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
               />
             </div>
@@ -192,7 +192,7 @@ export function AddInstanceModal({ hostId, hostName, onClose, onCreate }: AddIns
                 onChange={handleChange}
                 min="0"
                 max="1"
-                step="0.1"
+                step="0.01"
                 className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
               />
             </div>
@@ -224,7 +224,7 @@ export function AddInstanceModal({ hostId, hostName, onClose, onCreate }: AddIns
                 onChange={handleChange}
                 min="0"
                 max="1"
-                step="0.05"
+                step="0.01"
                 className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
               />
             </div>

@@ -62,15 +62,64 @@ npm run dev
 
 The application will be available at `http://localhost:5173`
 
-## Building for Production
+## Production Deployment
+
+### Build for Production
 
 ```bash
-# Build for production
 npm run build
-
-# Preview production build
-npm run preview
 ```
+
+This creates optimized static files in the `dist/` directory.
+
+### Serve in Production
+
+**Option 1: Using the built-in server (recommended for quick deployment)**
+
+```bash
+npm run serve
+```
+
+This serves the production build on `http://0.0.0.0:5173`
+
+**Option 2: Using a dedicated static file server**
+
+Install `serve` globally:
+```bash
+npm install -g serve
+serve -s dist -p 5173
+```
+
+**Option 3: Using nginx**
+
+Point nginx to the `dist/` directory:
+
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+    root /path/to/solar-webui/dist;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+```
+
+**Option 4: Deploy to cloud platforms**
+
+The `dist/` folder can be deployed to:
+- Vercel: `vercel --prod`
+- Netlify: `netlify deploy --prod`
+- GitHub Pages
+- Any static hosting service
+
+### Important Notes
+
+- Make sure your `.env` file has production URLs before building
+- The build embeds environment variables at build time
+- Rebuild if you change API endpoints or keys
 
 ## Project Structure
 

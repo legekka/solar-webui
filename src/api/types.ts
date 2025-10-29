@@ -4,6 +4,13 @@ export type InstanceStatus = 'stopped' | 'starting' | 'running' | 'failed' | 'st
 
 export type HostStatus = 'online' | 'offline' | 'error';
 
+export interface MemoryInfo {
+  used_gb: number;
+  total_gb: number;
+  percent: number;
+  memory_type: string;
+}
+
 export interface InstanceConfig {
   model: string;
   alias: string;
@@ -39,6 +46,7 @@ export interface Host {
   api_key: string;
   status: HostStatus;
   last_seen?: string;
+  memory?: MemoryInfo;
   created_at: string;
 }
 

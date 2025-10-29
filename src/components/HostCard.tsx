@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Instance, InstanceConfig } from '@/api/types';
-import { cn, getStatusColor, formatDate } from '@/lib/utils';
+import { Instance, InstanceConfig, MemoryInfo } from '@/api/types';
+import { cn, getStatusColor, formatDate, getMemoryColor, formatMemoryUsage } from '@/lib/utils';
 import { InstanceCard } from './InstanceCard';
 import { AddInstanceModal } from './AddInstanceModal';
 import { Server, Trash2, Plus } from 'lucide-react';
@@ -13,6 +13,7 @@ interface HostCardProps {
     api_key: string;
     status: string;
     last_seen?: string;
+    memory?: MemoryInfo;
     instances: Instance[];
   };
   onStartInstance: (hostId: string, instanceId: string) => Promise<void>;
@@ -84,6 +85,22 @@ export function HostCard({
             </button>
           </div>
         </div>
+
+        {/* Memory Usage */}
+        {host.memory && (
+          <div className="mt-3 space-y-1">
+            <div className="flex items-center justify-between text-xs text-nord-4">
+              <span className="font-medium">{host.memory.memory_type} Usage:</span>
+              <span>{formatMemoryUsage(host.memory.used_gb, host.memory.total_gb, host.memory.percent)}</span>
+            </div>
+            <div className="w-full h-2 bg-nord-2 rounded-full overflow-hidden">
+              <div
+                className={cn("h-full transition-all duration-300 rounded-full", getMemoryColor(host.memory.percent))}
+                style={{ width: `${Math.min(host.memory.percent, 100)}%` }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Instances */}

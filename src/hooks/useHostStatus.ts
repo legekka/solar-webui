@@ -1,10 +1,12 @@
 import { useEffect, useCallback, useRef } from 'react';
+import { MemoryInfo } from '@/api/types';
 
 interface HostStatusUpdate {
   host_id: string;
   name: string;
   status: string;
   url: string;
+  memory?: MemoryInfo;
 }
 
 interface StatusMessage {

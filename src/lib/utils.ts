@@ -81,3 +81,17 @@ export function getStatusColor(status: string): string {
   }
 }
 
+export function getMemoryColor(percent: number): string {
+  if (percent < 70) {
+    return 'bg-nord-14'; // green
+  } else if (percent < 90) {
+    return 'bg-nord-13'; // yellow
+  } else {
+    return 'bg-nord-11'; // red
+  }
+}
+
+export function formatMemoryUsage(used: number, total: number, percent: number): string {
+  return `${used.toFixed(1)} / ${total.toFixed(1)} GB (${percent.toFixed(1)}%)`;
+}
+

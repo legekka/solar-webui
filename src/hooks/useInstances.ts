@@ -78,21 +78,23 @@ export function useInstances(refreshInterval = 10000) {
   }, [fetchData]);
 
   // Handle real-time status updates from WebSocket
-  const handleStatusUpdate = useCallback((update: { host_id: string; status: string }) => {
+  const handleStatusUpdate = useCallback((update: { host_id: string; status: string; memory?: any }) => {
     setHosts((prevHosts) =>
       prevHosts.map((host) =>
         host.id === update.host_id
-          ? { ...host, status: update.status as any }
+          ? { ...host, status: update.status as any, memory: update.memory || host.memory }
           : host
       )
     );
   }, []);
 
-  const handleInitialStatus = useCallback((statuses: Array<{ host_id: string; status: string }>) => {
+  const handleInitialStatus = useCallback((statuses: Array<{ host_id: string; status: string; memory?: any }>) => {
     setHosts((prevHosts) =>
       prevHosts.map((host) => {
-        const status = statuses.find((s) => s.host_id === host.id);
-        return status ? { ...host, status: status.status as any } : host;
+        const statusUpdate = statuses.find((s) => s.host_id === host.id);
+        return statusUpdate 
+          ? { ...host, status: statusUpdate.status as any, memory: statusUpdate.memory || host.memory } 
+          : host;
       })
     );
   }, []);

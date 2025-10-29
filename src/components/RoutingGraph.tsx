@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import ReactFlow, {
   Node,
   Edge,
-  Background,
   Controls,
   MiniMap,
   useNodesState,
@@ -352,7 +351,6 @@ export function RoutingGraph() {
           fitView
           attributionPosition="bottom-right"
         >
-          <Background gap={16} size={0} />
           <Controls />
           <MiniMap
             nodeColor={(node) => {

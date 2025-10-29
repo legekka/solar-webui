@@ -403,6 +403,12 @@ export function RoutingGraph() {
           transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
         }
         
+        /* Hide connection handles (black dots) */
+        .react-flow__handle {
+          opacity: 0 !important;
+          pointer-events: none !important;
+        }
+        
         /* Smooth color transitions for all request edges */
         .react-flow__edge.request-edge {
           transition: stroke 0.3s ease-out !important;

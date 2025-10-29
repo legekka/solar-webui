@@ -7,12 +7,14 @@ export interface RoutingEvent {
     model: string;
     endpoint?: string;
     host_id?: string;
+    host_name?: string;
     instance_id?: string;
     instance_url?: string;
     error_message?: string;
     duration?: number;
     timestamp: string;
     stream?: boolean;
+    client_ip?: string;
   };
 }
 
@@ -21,6 +23,7 @@ export interface RequestState {
   model: string;
   endpoint?: string;
   host_id?: string;
+  host_name?: string;
   instance_id?: string;
   instance_url?: string;
   status: 'pending' | 'routed' | 'processing' | 'success' | 'error';
@@ -28,6 +31,7 @@ export interface RequestState {
   duration?: number;
   timestamp: string;
   stream?: boolean;
+  client_ip?: string;
 }
 
 export function useRoutingEvents(baseUrl: string) {
@@ -70,12 +74,14 @@ export function useRoutingEvents(baseUrl: string) {
           status: 'pending',
           timestamp: data.timestamp,
           stream: data.stream,
+          client_ip: data.client_ip,
         });
         break;
 
       case 'request_routed':
         updateRequest(request_id, {
           host_id: data.host_id,
+          host_name: data.host_name,
           instance_id: data.instance_id,
           instance_url: data.instance_url,
           status: 'processing',
@@ -87,10 +93,10 @@ export function useRoutingEvents(baseUrl: string) {
           status: 'success',
           duration: data.duration,
         });
-        // Auto-remove successful requests after 1.5 seconds
+        // Auto-remove successful requests after 5 seconds
         setTimeout(() => {
           removeRequest(request_id);
-        }, 1500);
+        }, 5000);
         break;
 
       case 'request_error':

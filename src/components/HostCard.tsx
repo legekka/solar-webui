@@ -89,12 +89,13 @@ export function HostCard({
       {/* Instances */}
       <div className="p-4">
         {host.instances.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-nord-4">
             <p>No instances configured</p>
             <button
               onClick={() => setShowAddModal(true)}
-              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+              className="mt-4 px-6 py-3 bg-nord-10 text-nord-6 rounded-lg hover:bg-nord-9 transition-colors font-medium shadow-md"
             >
+              <Plus size={20} className="inline-block mr-2" />
               Add First Instance
             </button>
           </div>

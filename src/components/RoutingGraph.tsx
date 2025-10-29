@@ -182,15 +182,25 @@ export function RoutingGraph() {
           label: (
             <div className="flex items-center gap-2">
               <div className="flex flex-col text-left">
-                <span className="font-semibold text-xs truncate max-w-[120px]" title={request.model}>
+                <span className="font-semibold text-sm truncate max-w-[180px]" title={request.model}>
                   {request.model}
                 </span>
-                <span className="text-xs text-nord-6 opacity-80 truncate">
-                  {request.request_id.substring(0, 8)}...
+                {request.client_ip && (
+                  <span className="text-xs text-nord-6 opacity-80 truncate">
+                    Client: {request.client_ip}
+                  </span>
+                )}
+                {request.host_name && (
+                  <span className="text-xs text-nord-6 opacity-80 truncate">
+                    Host: {request.host_name}
+                  </span>
+                )}
+                <span className="text-xs text-nord-6 opacity-60 truncate">
+                  ID: {request.request_id.substring(0, 8)}
                 </span>
                 {request.duration && (
-                  <span className="text-xs text-nord-6 opacity-80">
-                    {request.duration.toFixed(2)}s
+                  <span className="text-xs text-nord-6 opacity-80 font-medium">
+                    ⏱ {request.duration.toFixed(2)}s
                   </span>
                 )}
               </div>
@@ -200,7 +210,7 @@ export function RoutingGraph() {
                   className="p-0.5 hover:bg-nord-0 hover:bg-opacity-20 rounded transition-colors"
                   title="Dismiss error"
                 >
-                  <X size={14} />
+                  <X size={16} />
                 </button>
               )}
             </div>
@@ -211,8 +221,9 @@ export function RoutingGraph() {
           color: '#ECEFF4', // nord6 - bright text
           border: '2px solid rgba(0,0,0,0.3)',
           borderRadius: '8px',
-          padding: '8px',
-          width: 180,
+          padding: '12px',
+          width: 240,
+          minHeight: 100,
           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2)',
         },
       });

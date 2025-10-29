@@ -295,6 +295,7 @@ export function RoutingGraph() {
           type: MarkerType.ArrowClosed,
           color: getStatusColor(request.status),
         },
+        className: request.removing ? 'request-edge removing-edge' : 'request-edge',
       });
 
       // Edges from Solar Control → Host → Instance (if routed)
@@ -316,6 +317,7 @@ export function RoutingGraph() {
             type: MarkerType.ArrowClosed,
             color: getStatusColor(request.status),
           },
+          className: request.removing ? 'request-edge removing-edge' : 'request-edge',
         });
         
         // Edge 2: Host → Instance
@@ -332,6 +334,7 @@ export function RoutingGraph() {
             type: MarkerType.ArrowClosed,
             color: getStatusColor(request.status),
           },
+          className: request.removing ? 'request-edge removing-edge' : 'request-edge',
         });
       }
     });
@@ -383,13 +386,12 @@ export function RoutingGraph() {
           transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
         }
         
-        /* Fade in/out animations for edges (arrows) */
-        .react-flow__edge {
+        /* Fade animations ONLY for edges connected to request nodes */
+        .react-flow__edge.request-edge {
           animation: edgeFadeIn 0.3s ease-out;
-          transition: opacity 0.3s ease-out !important;
         }
         
-        .react-flow__edge.removing-edge {
+        .react-flow__edge.request-edge.removing-edge {
           animation: edgeFadeOut 0.3s ease-out forwards;
         }
         

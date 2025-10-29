@@ -73,6 +73,11 @@ class SolarClient {
     return response.data;
   }
 
+  async refreshAllHosts(): Promise<{ message: string; results: Array<{ host_id: string; name: string; status: string; message: string }> }> {
+    const response = await this.client.post('/hosts/refresh-all');
+    return response.data;
+  }
+
   async getHostInstances(hostId: string): Promise<Instance[]> {
     const response = await this.client.get(`/hosts/${hostId}/instances`);
     return response.data;
@@ -91,6 +96,21 @@ class SolarClient {
 
   async restartInstance(hostId: string, instanceId: string): Promise<{ instance: Instance; message: string }> {
     const response = await this.client.post(`/hosts/${hostId}/instances/${instanceId}/restart`);
+    return response.data;
+  }
+
+  async createInstance(hostId: string, config: any): Promise<{ instance: Instance; message: string }> {
+    const response = await this.client.post(`/hosts/${hostId}/instances`, { config });
+    return response.data;
+  }
+
+  async updateInstance(hostId: string, instanceId: string, config: any): Promise<{ instance: Instance; message: string }> {
+    const response = await this.client.put(`/hosts/${hostId}/instances/${instanceId}`, { config });
+    return response.data;
+  }
+
+  async deleteInstance(hostId: string, instanceId: string): Promise<{ instance: Instance; message: string }> {
+    const response = await this.client.delete(`/hosts/${hostId}/instances/${instanceId}`);
     return response.data;
   }
 

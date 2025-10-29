@@ -1,7 +1,9 @@
-import { Instance } from '@/api/types';
+import { useState } from 'react';
+import { Instance, InstanceConfig } from '@/api/types';
 import { cn, getStatusColor, formatDate } from '@/lib/utils';
 import { InstanceCard } from './InstanceCard';
-import { Server, Trash2 } from 'lucide-react';
+import { AddInstanceModal } from './AddInstanceModal';
+import { Server, Trash2, Plus } from 'lucide-react';
 
 interface HostCardProps {
   host: {
@@ -16,6 +18,9 @@ interface HostCardProps {
   onStartInstance: (hostId: string, instanceId: string) => Promise<void>;
   onStopInstance: (hostId: string, instanceId: string) => Promise<void>;
   onRestartInstance: (hostId: string, instanceId: string) => Promise<void>;
+  onUpdateInstance: (hostId: string, instanceId: string, config: InstanceConfig) => Promise<void>;
+  onDeleteInstance: (hostId: string, instanceId: string) => Promise<void>;
+  onCreateInstance: (hostId: string, config: InstanceConfig) => Promise<void>;
   onDeleteHost: (hostId: string) => Promise<void>;
 }
 
@@ -24,11 +29,16 @@ export function HostCard({
   onStartInstance,
   onStopInstance,
   onRestartInstance,
+  onUpdateInstance,
+  onDeleteInstance,
+  onCreateInstance,
   onDeleteHost,
 }: HostCardProps) {
+  const [showAddModal, setShowAddModal] = useState(false);
   const runningCount = host.instances.filter((i) => i.status === 'running').length;
 
   return (
+    <>
     <div className="bg-white rounded-lg shadow-lg overflow-hidden">
       {/* Host Header */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4">
@@ -62,7 +72,17 @@ export function HostCard({
           <span>
             {runningCount} / {host.instances.length} instances running
           </span>
-          {host.last_seen && <span>Last seen: {formatDate(host.last_seen)}</span>}
+          <div className="flex items-center gap-2">
+            {host.last_seen && <span>Last seen: {formatDate(host.last_seen)}</span>}
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="flex items-center gap-1 px-3 py-1 bg-blue-500 hover:bg-blue-400 rounded transition-colors text-sm font-medium"
+              title="Add instance"
+            >
+              <Plus size={16} />
+              Add Instance
+            </button>
+          </div>
         </div>
       </div>
 
@@ -70,7 +90,13 @@ export function HostCard({
       <div className="p-4">
         {host.instances.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
-            No instances configured
+            <p>No instances configured</p>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+            >
+              Add First Instance
+            </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -83,12 +109,25 @@ export function HostCard({
                 onStart={onStartInstance}
                 onStop={onStopInstance}
                 onRestart={onRestartInstance}
+                onUpdate={onUpdateInstance}
+                onDelete={onDeleteInstance}
               />
             ))}
           </div>
         )}
       </div>
     </div>
+
+    {/* Add Instance Modal */}
+    {showAddModal && (
+      <AddInstanceModal
+        hostId={host.id}
+        hostName={host.name}
+        onClose={() => setShowAddModal(false)}
+        onCreate={onCreateInstance}
+      />
+    )}
+    </>
   );
 }
 

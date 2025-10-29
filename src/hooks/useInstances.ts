@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import solarClient from '@/api/client';
 import { Host, Instance } from '@/api/types';
+import { useHostStatus } from './useHostStatus';
 
 interface HostWithInstances extends Host {
   instances: Instance[];
 }
 
-export function useInstances(refreshInterval = 5000) {
+export function useInstances(refreshInterval = 10000) {
   const [hosts, setHosts] = useState<HostWithInstances[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -75,6 +76,30 @@ export function useInstances(refreshInterval = 5000) {
       throw new Error(err instanceof Error ? err.message : 'Failed to restart instance');
     }
   }, [fetchData]);
+
+  // Handle real-time status updates from WebSocket
+  const handleStatusUpdate = useCallback((update: { host_id: string; status: string }) => {
+    setHosts((prevHosts) =>
+      prevHosts.map((host) =>
+        host.id === update.host_id
+          ? { ...host, status: update.status as any }
+          : host
+      )
+    );
+  }, []);
+
+  const handleInitialStatus = useCallback((statuses: Array<{ host_id: string; status: string }>) => {
+    setHosts((prevHosts) =>
+      prevHosts.map((host) => {
+        const status = statuses.find((s) => s.host_id === host.id);
+        return status ? { ...host, status: status.status as any } : host;
+      })
+    );
+  }, []);
+
+  // Connect to status WebSocket
+  const baseUrl = import.meta.env.VITE_SOLAR_CONTROL_URL || 'http://localhost:8000';
+  useHostStatus(baseUrl, handleStatusUpdate, handleInitialStatus);
 
   return {
     hosts,

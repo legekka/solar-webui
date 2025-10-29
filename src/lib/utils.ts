@@ -7,7 +7,42 @@ export function cn(...inputs: ClassValue[]) {
 
 export function formatDate(date: string | undefined): string {
   if (!date) return 'Never';
-  return new Date(date).toLocaleString();
+  const d = new Date(date);
+  return d.toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+}
+
+export function formatDateTime(date: string | undefined): string {
+  if (!date) return 'Never';
+  const d = new Date(date);
+  return d.toLocaleString(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'medium'
+  });
+}
+
+export function formatRelativeTime(date: string | undefined): string {
+  if (!date) return 'Never';
+  const d = new Date(date);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffSeconds = Math.floor(diffMs / 1000);
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  const diffHours = Math.floor(diffMinutes / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffSeconds < 60) return 'just now';
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  
+  return formatDate(date);
 }
 
 export function formatUptime(startedAt: string | undefined): string {

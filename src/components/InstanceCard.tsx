@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Play, Square, RotateCw, FileText } from 'lucide-react';
-import { Instance } from '@/api/types';
+import { Play, Square, RotateCw, FileText, Trash2, Edit } from 'lucide-react';
+import { Instance, InstanceConfig } from '@/api/types';
 import { cn, getStatusColor, formatUptime } from '@/lib/utils';
 import { LogViewer } from './LogViewer';
+import { EditInstanceModal } from './EditInstanceModal';
 
 interface InstanceCardProps {
   instance: Instance;
@@ -11,6 +12,8 @@ interface InstanceCardProps {
   onStart: (hostId: string, instanceId: string) => Promise<void>;
   onStop: (hostId: string, instanceId: string) => Promise<void>;
   onRestart: (hostId: string, instanceId: string) => Promise<void>;
+  onUpdate: (hostId: string, instanceId: string, config: InstanceConfig) => Promise<void>;
+  onDelete: (hostId: string, instanceId: string) => Promise<void>;
 }
 
 export function InstanceCard({
@@ -20,9 +23,12 @@ export function InstanceCard({
   onStart,
   onStop,
   onRestart,
+  onUpdate,
+  onDelete,
 }: InstanceCardProps) {
   const [loading, setLoading] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
 
   const handleAction = async (action: () => Promise<void>) => {
     setLoading(true);
@@ -39,19 +45,43 @@ export function InstanceCard({
     <>
       <div className="bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow">
         {/* Header */}
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex-1">
-            <h3 className="font-semibold text-lg">{instance.config.alias}</h3>
-            <p className="text-sm text-gray-500 truncate">{instance.config.model}</p>
+        <div className="flex items-start justify-between gap-2 mb-3">
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-lg truncate">{instance.config.alias}</h3>
+            <p className="text-sm text-gray-500 truncate" title={instance.config.model}>
+              {instance.config.model}
+            </p>
           </div>
-          <span
-            className={cn(
-              'px-2 py-1 rounded-full text-xs font-medium',
-              getStatusColor(instance.status)
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <span
+              className={cn(
+                'px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap',
+                getStatusColor(instance.status)
+              )}
+            >
+              {instance.status}
+            </span>
+            {instance.status === 'stopped' && (
+              <>
+                <button
+                  onClick={() => setShowEdit(true)}
+                  disabled={loading}
+                  className="p-1 hover:bg-blue-50 text-blue-600 rounded transition-colors disabled:opacity-50"
+                  title="Edit instance"
+                >
+                  <Edit size={16} />
+                </button>
+                <button
+                  onClick={() => handleAction(() => onDelete(hostId, instance.id))}
+                  disabled={loading}
+                  className="p-1 hover:bg-red-50 text-red-600 rounded transition-colors disabled:opacity-50"
+                  title="Delete instance"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </>
             )}
-          >
-            {instance.status}
-          </span>
+          </div>
         </div>
 
         {/* Details */}
@@ -146,6 +176,16 @@ export function InstanceCard({
           instanceId={instance.id}
           alias={instance.config.alias}
           onClose={() => setShowLogs(false)}
+        />
+      )}
+
+      {/* Edit Instance Modal */}
+      {showEdit && (
+        <EditInstanceModal
+          instance={instance}
+          hostId={hostId}
+          onClose={() => setShowEdit(false)}
+          onUpdate={onUpdate}
         />
       )}
     </>

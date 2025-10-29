@@ -37,6 +37,38 @@ export function Dashboard() {
     }
   };
 
+  const handleCreateInstance = async (hostId: string, config: any) => {
+    try {
+      await solarClient.createInstance(hostId, config);
+      await refresh();
+    } catch (error) {
+      console.error('Failed to create instance:', error);
+      throw error;
+    }
+  };
+
+  const handleUpdateInstance = async (hostId: string, instanceId: string, config: any) => {
+    try {
+      await solarClient.updateInstance(hostId, instanceId, config);
+      await refresh();
+    } catch (error) {
+      console.error('Failed to update instance:', error);
+      throw error;
+    }
+  };
+
+  const handleDeleteInstance = async (hostId: string, instanceId: string) => {
+    if (!confirm('Are you sure you want to delete this instance?')) return;
+    
+    try {
+      await solarClient.deleteInstance(hostId, instanceId);
+      await refresh();
+    } catch (error) {
+      console.error('Failed to delete instance:', error);
+      alert('Failed to delete instance');
+    }
+  };
+
   if (loading && hosts.length === 0) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -119,6 +151,9 @@ export function Dashboard() {
                 onStartInstance={startInstance}
                 onStopInstance={stopInstance}
                 onRestartInstance={restartInstance}
+                onUpdateInstance={handleUpdateInstance}
+                onDeleteInstance={handleDeleteInstance}
+                onCreateInstance={handleCreateInstance}
                 onDeleteHost={handleDeleteHost}
               />
             ))}

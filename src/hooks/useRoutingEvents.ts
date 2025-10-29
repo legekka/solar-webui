@@ -5,6 +5,7 @@ export interface RoutingEvent {
   data?: {
     request_id: string;
     model: string;
+    resolved_model?: string;
     endpoint?: string;
     host_id?: string;
     host_name?: string;
@@ -21,6 +22,7 @@ export interface RoutingEvent {
 export interface RequestState {
   request_id: string;
   model: string;
+  resolved_model?: string;
   endpoint?: string;
   host_id?: string;
   host_name?: string;
@@ -84,6 +86,7 @@ export function useRoutingEvents(baseUrl: string) {
           host_name: data.host_name,
           instance_id: data.instance_id,
           instance_url: data.instance_url,
+          resolved_model: data.resolved_model,
           status: 'processing',
         });
         break;

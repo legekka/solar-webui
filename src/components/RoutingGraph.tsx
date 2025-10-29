@@ -182,9 +182,20 @@ export function RoutingGraph() {
           label: (
             <div className="flex items-center gap-2">
               <div className="flex flex-col text-left">
-                <span className="font-semibold text-sm truncate max-w-[180px]" title={request.model}>
-                  {request.model}
-                </span>
+                {request.resolved_model && request.resolved_model !== request.model ? (
+                  <div className="flex flex-col">
+                    <span className="font-semibold text-sm truncate max-w-[180px]" title={request.resolved_model}>
+                      {request.resolved_model}
+                    </span>
+                    <span className="text-xs text-nord-6 opacity-60 truncate">
+                      Requested: {request.model}
+                    </span>
+                  </div>
+                ) : (
+                  <span className="font-semibold text-sm truncate max-w-[180px]" title={request.model}>
+                    {request.model}
+                  </span>
+                )}
                 {request.client_ip && (
                   <span className="text-xs text-nord-6 opacity-80 truncate">
                     Client: {request.client_ip}

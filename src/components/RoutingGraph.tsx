@@ -277,8 +277,6 @@ export function RoutingGraph() {
           width: 240,
           minHeight: 100,
           boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-          transition: 'all 0.3s ease-in-out',
-          opacity: request.removing ? 0 : 1,
         },
         className: request.removing ? 'request-node-animated removing' : 'request-node-animated',
       });
@@ -353,49 +351,45 @@ export function RoutingGraph() {
   return (
     <div className="w-full bg-nord-0">
       <style>{`
-        .react-flow__node.request-node-animated {
-          animation: fadeIn 0.3s ease-in-out;
+        /* Fade in animation - opacity only, let React Flow handle position */
+        .react-flow__node.request-node-animated > div {
+          animation: fadeIn 0.3s ease-out;
         }
         
-        .react-flow__node.request-node-animated.removing {
-          animation: fadeOut 0.3s ease-in-out forwards;
+        .react-flow__node.request-node-animated.removing > div {
+          animation: fadeOut 0.3s ease-out forwards;
         }
         
         @keyframes fadeIn {
           from {
             opacity: 0;
-            transform: scale(0.95);
           }
           to {
             opacity: 1;
-            transform: scale(1);
           }
         }
         
         @keyframes fadeOut {
           from {
             opacity: 1;
-            transform: scale(1);
           }
           to {
             opacity: 0;
-            transform: scale(0.95);
           }
         }
         
-        /* Smooth transitions for position changes */
+        /* Smooth position transitions for ALL nodes */
         .react-flow__node {
-          transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
+          transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
         }
         
-        /* Keep edges attached during transitions */
+        /* Smooth edge path transitions */
+        .react-flow__edge.react-flow__edge-default {
+          transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
+        
         .react-flow__edge-path {
-          transition: d 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        }
-        
-        /* Smooth edge animations */
-        .react-flow__edge {
-          transition: opacity 0.3s ease-in-out !important;
+          transition: d 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
         }
       `}</style>
       <div className="p-4 bg-nord-1 border-b border-nord-3">

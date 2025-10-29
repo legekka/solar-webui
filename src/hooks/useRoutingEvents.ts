@@ -67,14 +67,14 @@ export function useRoutingEvents(baseUrl: string) {
       return newMap;
     });
     
-    // After animation completes (300ms), actually remove from map
+    // After animation completes (350ms for safety margin), actually remove from map
     setTimeout(() => {
       setRequests((prev) => {
         const newMap = new Map(prev);
         newMap.delete(requestId);
         return newMap;
       });
-    }, 300);
+    }, 350);
   }, []);
 
   const handleEvent = useCallback((event: RoutingEvent) => {

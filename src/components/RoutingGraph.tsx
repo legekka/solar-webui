@@ -33,6 +33,20 @@ function getStatusColor(status: RequestState['status']): string {
   }
 }
 
+function getBrighterColor(color: string): string {
+  // Convert hex to RGB, increase brightness and saturation
+  const r = parseInt(color.slice(1, 3), 16);
+  const g = parseInt(color.slice(3, 5), 16);
+  const b = parseInt(color.slice(5, 7), 16);
+  
+  // Increase each channel by 20% and cap at 255
+  const brighterR = Math.min(255, Math.round(r * 1.3));
+  const brighterG = Math.min(255, Math.round(g * 1.3));
+  const brighterB = Math.min(255, Math.round(b * 1.3));
+  
+  return `#${brighterR.toString(16).padStart(2, '0')}${brighterG.toString(16).padStart(2, '0')}${brighterB.toString(16).padStart(2, '0')}`;
+}
+
 export function RoutingGraph() {
   const baseUrl = import.meta.env.VITE_SOLAR_CONTROL_URL || 'http://localhost:8000';
   const { requests, removeRequest } = useRoutingEvents(baseUrl);
@@ -46,6 +60,14 @@ export function RoutingGraph() {
     const newNodes: Node[] = [];
     const newEdges: Edge[] = [];
 
+    // Calculate stats for Solar Control
+    const onlineHosts = hosts.filter(h => h.status === 'online').length;
+    const totalInstances = hosts.reduce((sum, h) => sum + h.instances.length, 0);
+    const runningInstances = hosts.reduce((sum, h) => sum + h.instances.filter(i => i.status === 'running').length, 0);
+    const activeRequests = Array.from(requests.values()).filter(r => r.status === 'processing' || r.status === 'routed').length;
+
+    const solarControlBg = '#5E81AC'; // nord10 - blue
+
     // 1. Solar Control node (center)
     newNodes.push({
       id: SOLAR_CONTROL_NODE_ID,
@@ -55,19 +77,24 @@ export function RoutingGraph() {
       targetPosition: Position.Left,
       data: {
         label: (
-          <div className="px-4 py-2 font-bold text-lg">
-            Solar Control
+          <div className="px-4 py-3 text-center">
+            <div className="font-bold text-lg mb-2">Solar Control</div>
+            <div className="text-xs space-y-1 text-nord-6 opacity-90">
+              <div>🌐 {onlineHosts} / {hosts.length} hosts online</div>
+              <div>⚡ {runningInstances} / {totalInstances} instances</div>
+              <div>📊 {activeRequests} active requests</div>
+            </div>
           </div>
         ),
       },
       style: {
-        background: '#5E81AC', // nord10 - blue
+        background: solarControlBg,
         color: '#ECEFF4', // nord6 - bright text
-        border: '1px solid #4C566A', // nord3 - thin border
+        border: `2px solid ${getBrighterColor(solarControlBg)}`,
         borderRadius: '8px',
         fontSize: '16px',
         fontWeight: 'bold',
-        width: 200,
+        width: 220,
         boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
       },
     });
@@ -78,6 +105,7 @@ export function RoutingGraph() {
       const hostNodeId = `host-${host.id}`;
 
       // Host node
+      const hostBg = host.status === 'online' ? '#A3BE8C' : '#4C566A'; // nord14 green or nord3 gray
       newNodes.push({
         id: hostNodeId,
         type: 'default',
@@ -92,9 +120,9 @@ export function RoutingGraph() {
           ),
         },
         style: {
-          background: host.status === 'online' ? '#A3BE8C' : '#4C566A', // nord14 green or nord3 gray
+          background: hostBg,
           color: host.status === 'online' ? '#2E3440' : '#D8DEE9', // dark text on green, light text on gray
-          border: '1px solid #4C566A', // nord3 - thin border
+          border: `2px solid ${getBrighterColor(hostBg)}`,
           borderRadius: '8px',
           padding: '8px',
           width: 150,
@@ -118,11 +146,12 @@ export function RoutingGraph() {
       let instanceYOffset = hostYOffset;
       host.instances.forEach((instance) => {
         const instanceNodeId = `instance-${host.id}-${instance.id}`;
+        const instanceBg = instance.status === 'running' ? '#88C0D0' : '#434C5E'; // nord8 cyan or nord2
 
         newNodes.push({
           id: instanceNodeId,
           type: 'default',
-          position: { x: 950, y: instanceYOffset },
+          position: { x: 1000, y: instanceYOffset },
           sourcePosition: Position.Right,
           targetPosition: Position.Left,
           data: {
@@ -138,9 +167,9 @@ export function RoutingGraph() {
             ),
           },
           style: {
-            background: instance.status === 'running' ? '#88C0D0' : '#434C5E', // nord8 cyan or nord2
+            background: instanceBg,
             color: instance.status === 'running' ? '#2E3440' : '#D8DEE9', // dark or light text
-            border: '1px solid #4C566A', // nord3 - thin border
+            border: `2px solid ${getBrighterColor(instanceBg)}`,
             borderRadius: '8px',
             padding: '6px',
             width: 140,
@@ -230,7 +259,7 @@ export function RoutingGraph() {
         style: {
           background: getStatusColor(request.status),
           color: '#ECEFF4', // nord6 - bright text
-          border: '1px solid #4C566A', // nord3 - thin border
+          border: `2px solid ${getBrighterColor(getStatusColor(request.status))}`,
           borderRadius: '8px',
           padding: '12px',
           width: 240,

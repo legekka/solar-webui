@@ -77,12 +77,12 @@ export function RoutingGraph() {
       targetPosition: Position.Left,
       data: {
         label: (
-          <div className="px-4 py-3 text-center">
-            <div className="font-bold text-lg mb-2">Solar Control</div>
-            <div className="text-xs space-y-1 text-nord-6 opacity-90">
-              <div>🌐 {onlineHosts} / {hosts.length} hosts online</div>
-              <div>⚡ {runningInstances} / {totalInstances} instances</div>
-              <div>📊 {activeRequests} active requests</div>
+          <div className="px-4 py-3">
+            <div className="font-bold text-lg mb-2 text-center">Solar Control</div>
+            <div className="text-xs space-y-1 text-nord-6 opacity-90 text-left">
+              <div>{onlineHosts} / {hosts.length} hosts online</div>
+              <div>{runningInstances} / {totalInstances} instances</div>
+              <div>{activeRequests} active requests</div>
             </div>
           </div>
         ),
@@ -90,7 +90,7 @@ export function RoutingGraph() {
       style: {
         background: solarControlBg,
         color: '#ECEFF4', // nord6 - bright text
-        border: `2px solid ${getBrighterColor(solarControlBg)}`,
+        border: `1px solid ${getBrighterColor(solarControlBg)}`,
         borderRadius: '8px',
         fontSize: '16px',
         fontWeight: 'bold',
@@ -122,7 +122,7 @@ export function RoutingGraph() {
         style: {
           background: hostBg,
           color: host.status === 'online' ? '#2E3440' : '#D8DEE9', // dark text on green, light text on gray
-          border: `2px solid ${getBrighterColor(hostBg)}`,
+          border: `1px solid ${getBrighterColor(hostBg)}`,
           borderRadius: '8px',
           padding: '8px',
           width: 150,
@@ -169,7 +169,7 @@ export function RoutingGraph() {
           style: {
             background: instanceBg,
             color: instance.status === 'running' ? '#2E3440' : '#D8DEE9', // dark or light text
-            border: `2px solid ${getBrighterColor(instanceBg)}`,
+            border: `1px solid ${getBrighterColor(instanceBg)}`,
             borderRadius: '8px',
             padding: '6px',
             width: 140,
@@ -259,7 +259,7 @@ export function RoutingGraph() {
         style: {
           background: getStatusColor(request.status),
           color: '#ECEFF4', // nord6 - bright text
-          border: `2px solid ${getBrighterColor(getStatusColor(request.status))}`,
+          border: `1px solid ${getBrighterColor(getStatusColor(request.status))}`,
           borderRadius: '8px',
           padding: '12px',
           width: 240,

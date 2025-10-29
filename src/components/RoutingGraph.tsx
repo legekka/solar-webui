@@ -351,12 +351,12 @@ export function RoutingGraph() {
   return (
     <div className="w-full bg-nord-0">
       <style>{`
-        /* Fade in animation - opacity only, let React Flow handle position */
-        .react-flow__node.request-node-animated > div {
+        /* Fade in animation - entire node including background/border */
+        .react-flow__node.request-node-animated {
           animation: fadeIn 0.3s ease-out;
         }
         
-        .react-flow__node.request-node-animated.removing > div {
+        .react-flow__node.request-node-animated.removing {
           animation: fadeOut 0.3s ease-out forwards;
         }
         
@@ -378,8 +378,13 @@ export function RoutingGraph() {
           }
         }
         
-        /* Smooth position transitions for ALL nodes */
+        /* Smooth position transitions for ALL nodes - but not opacity */
         .react-flow__node {
+          transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
+        
+        /* Don't transition opacity on non-animated nodes */
+        .react-flow__node:not(.request-node-animated) {
           transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
         }
         

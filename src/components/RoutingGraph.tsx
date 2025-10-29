@@ -180,12 +180,12 @@ export function RoutingGraph() {
           style: {
             background: instanceBg,
             color: instance.status === 'running' ? '#2E3440' : '#D8DEE9', // dark or light text
-            border: `2px solid ${borderColor}`,
+            border: `1px solid ${borderColor}`,
             borderRadius: '8px',
             padding: '6px',
             width: 140,
             boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-            transition: 'border 0.3s ease',
+            transition: 'border-color 0.3s ease',
           },
         });
 

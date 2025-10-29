@@ -29,8 +29,8 @@ export function LogViewer({ hostId, instanceId, alias, onClose }: LogViewerProps
   }, [messages, autoScroll]);
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
-      <div className="bg-nord-1 rounded-lg shadow-2xl w-full max-w-4xl max-h-[80vh] flex flex-col border border-nord-3">
+    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+      <div className="bg-nord-1 rounded-lg shadow-2xl w-full max-w-[95vw] max-h-[90vh] flex flex-col border border-nord-3">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-nord-3">
           <div>
@@ -63,13 +63,13 @@ export function LogViewer({ hostId, instanceId, alias, onClose }: LogViewerProps
         {/* Log content */}
         <div
           ref={logContainerRef}
-          className="flex-1 overflow-y-auto p-4 bg-nord-0 text-nord-6 font-mono text-sm"
+          className="flex-1 overflow-auto p-4 bg-nord-0 text-nord-6 font-mono text-sm"
         >
           {messages.length === 0 ? (
             <div className="text-nord-3">Waiting for logs...</div>
           ) : (
             messages.map((msg) => (
-              <div key={msg.seq} className="whitespace-pre-wrap break-words">
+              <div key={msg.seq} className="whitespace-pre">
                 <span className="text-nord-3">[{msg.timestamp}]</span> {msg.line}
               </div>
             ))
@@ -78,7 +78,7 @@ export function LogViewer({ hostId, instanceId, alias, onClose }: LogViewerProps
 
         {/* Footer */}
         <div className="p-3 border-t border-nord-3 bg-nord-2 text-sm text-nord-4">
-          {messages.length} log messages
+          {messages.length} log messages • Scroll horizontally for long lines
         </div>
       </div>
     </div>

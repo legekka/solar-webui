@@ -61,7 +61,7 @@ export function InstanceCard({
             >
               {instance.status}
             </span>
-            {instance.status === 'stopped' && (
+            {(instance.status === 'stopped' || instance.status === 'failed') && (
               <>
                 <button
                   onClick={() => setShowEdit(true)}

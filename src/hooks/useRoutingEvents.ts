@@ -34,6 +34,7 @@ export interface RequestState {
   timestamp: string;
   stream?: boolean;
   client_ip?: string;
+  removing?: boolean;
 }
 
 export function useRoutingEvents(baseUrl: string) {
@@ -56,11 +57,24 @@ export function useRoutingEvents(baseUrl: string) {
   }, []);
 
   const removeRequest = useCallback((requestId: string) => {
+    // First, mark as removing to trigger fadeOut animation
     setRequests((prev) => {
       const newMap = new Map(prev);
-      newMap.delete(requestId);
+      const existing = newMap.get(requestId);
+      if (existing) {
+        newMap.set(requestId, { ...existing, removing: true });
+      }
       return newMap;
     });
+    
+    // After animation completes (300ms), actually remove from map
+    setTimeout(() => {
+      setRequests((prev) => {
+        const newMap = new Map(prev);
+        newMap.delete(requestId);
+        return newMap;
+      });
+    }, 300);
   }, []);
 
   const handleEvent = useCallback((event: RoutingEvent) => {

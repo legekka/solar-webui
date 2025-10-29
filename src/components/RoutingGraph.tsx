@@ -278,9 +278,9 @@ export function RoutingGraph() {
           minHeight: 100,
           boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
           transition: 'all 0.3s ease-in-out',
-          opacity: 1,
+          opacity: request.removing ? 0 : 1,
         },
-        className: 'request-node-animated',
+        className: request.removing ? 'request-node-animated removing' : 'request-node-animated',
       });
 
       // Edge from request to Solar Control
@@ -358,18 +358,17 @@ export function RoutingGraph() {
         }
         
         .react-flow__node.request-node-animated.removing {
-          animation: fadeOut 0.3s ease-in-out;
-          opacity: 0;
+          animation: fadeOut 0.3s ease-in-out forwards;
         }
         
         @keyframes fadeIn {
           from {
             opacity: 0;
-            transform: scale(0.9) translateY(-10px);
+            transform: scale(0.95);
           }
           to {
             opacity: 1;
-            transform: scale(1) translateY(0);
+            transform: scale(1);
           }
         }
         
@@ -380,13 +379,18 @@ export function RoutingGraph() {
           }
           to {
             opacity: 0;
-            transform: scale(0.9) translateY(-10px);
+            transform: scale(0.95);
           }
         }
         
         /* Smooth transitions for position changes */
         .react-flow__node {
           transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
+        
+        /* Keep edges attached during transitions */
+        .react-flow__edge-path {
+          transition: d 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
         }
         
         /* Smooth edge animations */
@@ -406,11 +410,14 @@ export function RoutingGraph() {
           edges={edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
-          fitView
+          fitView={nodes.length === 0}
+          fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
           attributionPosition="bottom-right"
           nodesDraggable={false}
           nodesConnectable={false}
           elementsSelectable={false}
+          minZoom={0.5}
+          maxZoom={1.5}
         >
           <Controls />
           <MiniMap

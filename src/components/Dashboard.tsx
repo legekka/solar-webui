@@ -73,22 +73,22 @@ export function Dashboard() {
     return (
       <div className="flex items-center justify-center" style={{ height: 'calc(100vh - 60px)' }}>
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-nord-9 mx-auto mb-4"></div>
+          <p className="text-nord-4">Loading...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-gray-100">
+    <div className="bg-nord-0">
       {/* Header */}
-      <header className="bg-white shadow">
+      <header className="bg-nord-1 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Solar Dashboard</h1>
-              <p className="text-sm text-gray-600 mt-1">
+              <h1 className="text-3xl font-bold text-nord-6">Solar Dashboard</h1>
+              <p className="text-sm text-nord-4 mt-1">
                 Multi-Host LLM Manager
               </p>
             </div>
@@ -96,14 +96,14 @@ export function Dashboard() {
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 bg-nord-3 text-nord-6 rounded-lg hover:bg-nord-2 transition-colors disabled:opacity-50"
               >
                 <RefreshCw size={18} className={refreshing ? 'animate-spin' : ''} />
                 Refresh
               </button>
               <button
                 onClick={() => setShowAddHost(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-nord-10 text-nord-6 rounded-lg hover:bg-nord-9 transition-colors"
               >
                 <Plus size={18} />
                 Add Host
@@ -116,27 +116,27 @@ export function Dashboard() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
-            <AlertCircle className="text-red-600 flex-shrink-0" size={20} />
+          <div className="mb-6 p-4 bg-nord-11 bg-opacity-20 border border-nord-11 rounded-lg flex items-start gap-3">
+            <AlertCircle className="text-nord-11 flex-shrink-0" size={20} />
             <div>
-              <h3 className="font-semibold text-red-900">Error</h3>
-              <p className="text-sm text-red-700">{error}</p>
+              <h3 className="font-semibold text-nord-6">Error</h3>
+              <p className="text-sm text-nord-4">{error}</p>
             </div>
           </div>
         )}
 
         {hosts.length === 0 ? (
           <div className="text-center py-16">
-            <Server size={64} className="mx-auto text-gray-400 mb-4" />
-            <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+            <Server size={64} className="mx-auto text-nord-3 mb-4" />
+            <h2 className="text-2xl font-semibold text-nord-6 mb-2">
               No hosts configured
             </h2>
-            <p className="text-gray-600 mb-6">
+            <p className="text-nord-4 mb-6">
               Add your first solar-host to get started
             </p>
             <button
               onClick={() => setShowAddHost(true)}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-nord-10 text-nord-6 rounded-lg hover:bg-nord-9 transition-colors"
             >
               <Plus size={20} />
               Add Host

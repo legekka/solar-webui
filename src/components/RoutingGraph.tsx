@@ -20,16 +20,16 @@ const SOLAR_CONTROL_NODE_ID = 'solar-control';
 function getStatusColor(status: RequestState['status']): string {
   switch (status) {
     case 'pending':
-      return '#94a3b8'; // gray
+      return '#4C566A'; // nord3 - gray
     case 'routed':
     case 'processing':
-      return '#f59e0b'; // orange
+      return '#D08770'; // nord12 - orange
     case 'success':
-      return '#10b981'; // green
+      return '#A3BE8C'; // nord14 - green
     case 'error':
-      return '#ef4444'; // red
+      return '#BF616A'; // nord11 - red
     default:
-      return '#94a3b8';
+      return '#4C566A'; // nord3
   }
 }
 
@@ -61,14 +61,14 @@ export function RoutingGraph() {
         ),
       },
       style: {
-        background: '#3b82f6',
-        color: 'white',
-        border: '2px solid #1e40af',
+        background: '#5E81AC', // nord10 - blue
+        color: '#ECEFF4', // nord6 - bright text
+        border: '2px solid #81A1C1', // nord9
         borderRadius: '8px',
         fontSize: '16px',
         fontWeight: 'bold',
         width: 200,
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2)',
       },
     });
 
@@ -92,13 +92,13 @@ export function RoutingGraph() {
           ),
         },
         style: {
-          background: host.status === 'online' ? '#10b981' : '#6b7280',
-          color: 'white',
-          border: '2px solid rgba(0,0,0,0.2)',
+          background: host.status === 'online' ? '#A3BE8C' : '#4C566A', // nord14 green or nord3 gray
+          color: host.status === 'online' ? '#2E3440' : '#D8DEE9', // dark text on green, light text on gray
+          border: '2px solid rgba(0,0,0,0.3)',
           borderRadius: '8px',
           padding: '8px',
           width: 150,
-          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2)',
         },
       });
 
@@ -109,7 +109,7 @@ export function RoutingGraph() {
         target: hostNodeId,
         animated: false,
         style: {
-          stroke: '#9ca3af',
+          stroke: '#4C566A', // nord3
           strokeWidth: 2,
         },
       });
@@ -131,20 +131,20 @@ export function RoutingGraph() {
                 <div className="font-semibold truncate max-w-[120px]" title={instance.config.alias}>
                   {instance.config.alias}
                 </div>
-                <div className="text-gray-200 text-[10px]">
+                <div className={`text-[10px] font-medium ${instance.status === 'running' ? 'text-nord-0 opacity-70' : 'text-nord-4'}`}>
                   {instance.status}
                 </div>
               </div>
             ),
           },
           style: {
-            background: instance.status === 'running' ? '#3b82f6' : '#6b7280',
-            color: 'white',
-            border: '2px solid rgba(0,0,0,0.2)',
+            background: instance.status === 'running' ? '#88C0D0' : '#434C5E', // nord8 cyan or nord2
+            color: instance.status === 'running' ? '#2E3440' : '#D8DEE9', // dark or light text
+            border: '2px solid rgba(0,0,0,0.3)',
             borderRadius: '6px',
             padding: '6px',
             width: 140,
-            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2)',
           },
         });
 
@@ -155,7 +155,7 @@ export function RoutingGraph() {
           target: instanceNodeId,
           animated: false,
           style: {
-            stroke: '#9ca3af',
+            stroke: '#4C566A', // nord3
             strokeWidth: 2,
           },
         });
@@ -185,11 +185,11 @@ export function RoutingGraph() {
                 <span className="font-semibold text-xs truncate max-w-[120px]" title={request.model}>
                   {request.model}
                 </span>
-                <span className="text-xs text-gray-200 truncate">
+                <span className="text-xs text-nord-6 opacity-80 truncate">
                   {request.request_id.substring(0, 8)}...
                 </span>
                 {request.duration && (
-                  <span className="text-xs text-gray-200">
+                  <span className="text-xs text-nord-6 opacity-80">
                     {request.duration.toFixed(2)}s
                   </span>
                 )}
@@ -197,7 +197,7 @@ export function RoutingGraph() {
               {request.status === 'error' && (
                 <button
                   onClick={() => removeRequest(request.request_id)}
-                  className="p-0.5 hover:bg-red-100 rounded"
+                  className="p-0.5 hover:bg-nord-0 hover:bg-opacity-20 rounded transition-colors"
                   title="Dismiss error"
                 >
                   <X size={14} />
@@ -208,12 +208,12 @@ export function RoutingGraph() {
         },
         style: {
           background: getStatusColor(request.status),
-          color: 'white',
-          border: '2px solid rgba(0,0,0,0.2)',
+          color: '#ECEFF4', // nord6 - bright text
+          border: '2px solid rgba(0,0,0,0.3)',
           borderRadius: '8px',
           padding: '8px',
           width: 180,
-          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2)',
         },
       });
 
@@ -279,16 +279,16 @@ export function RoutingGraph() {
   if (loading) {
     return (
       <div className="flex items-center justify-center" style={{ height: 'calc(100vh - 60px)' }}>
-        <div className="text-xl text-gray-600">Loading routing visualization...</div>
+        <div className="text-xl text-nord-4">Loading routing visualization...</div>
       </div>
     );
   }
 
   return (
-    <div className="w-full bg-gray-50">
-      <div className="p-4 bg-white border-b border-gray-200">
-        <h1 className="text-2xl font-bold text-gray-900">Solar Routing Visualization</h1>
-        <p className="text-sm text-gray-600 mt-1">
+    <div className="w-full bg-nord-0">
+      <div className="p-4 bg-nord-1 border-b border-nord-3">
+        <h1 className="text-2xl font-bold text-nord-6">Solar Routing Visualization</h1>
+        <p className="text-sm text-nord-4 mt-1">
           Real-time view of API requests flowing through the system
         </p>
       </div>
@@ -305,13 +305,15 @@ export function RoutingGraph() {
           <Controls />
           <MiniMap
             nodeColor={(node) => {
-              if (node.id === SOLAR_CONTROL_NODE_ID) return '#3b82f6';
+              if (node.id === SOLAR_CONTROL_NODE_ID) return '#5E81AC'; // nord10
               if (node.id.startsWith('request-')) {
                 const status = node.style?.background as string;
-                return status || '#94a3b8';
+                return status || '#4C566A'; // nord3
               }
-              return '#9ca3af';
+              return '#4C566A'; // nord3
             }}
+            style={{ backgroundColor: '#3B4252' }} // nord1
+            maskColor="rgba(46, 52, 64, 0.6)" // nord0 with opacity
           />
         </ReactFlow>
       </div>

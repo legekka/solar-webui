@@ -31,14 +31,14 @@ export function AddHostModal({ onClose, onSuccess }: AddHostModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+      <div className="bg-nord-1 rounded-lg shadow-2xl w-full max-w-md border border-nord-3">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b">
-          <h2 className="text-lg font-semibold">Add Solar Host</h2>
+        <div className="flex items-center justify-between p-4 border-b border-nord-3">
+          <h2 className="text-lg font-semibold text-nord-6">Add Solar Host</h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded transition-colors"
+            className="p-2 hover:bg-nord-2 rounded transition-colors text-nord-4"
           >
             <X size={18} />
           </button>
@@ -47,44 +47,44 @@ export function AddHostModal({ onClose, onSuccess }: AddHostModalProps) {
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           {error && (
-            <div className="p-3 bg-red-50 text-red-700 rounded-md text-sm">
+            <div className="p-3 bg-nord-11 bg-opacity-20 text-nord-11 rounded-md text-sm border border-nord-11">
               {error}
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium mb-1">Name</label>
+            <label className="block text-sm font-medium mb-1 text-nord-4">Name</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Mac Studio 1"
               required
-              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:outline-none focus:ring-2 focus:ring-nord-10"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">URL</label>
+            <label className="block text-sm font-medium mb-1 text-nord-4">URL</label>
             <input
               type="url"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="http://192.168.1.100:8001"
               required
-              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:outline-none focus:ring-2 focus:ring-nord-10"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">API Key</label>
+            <label className="block text-sm font-medium mb-1 text-nord-4">API Key</label>
             <input
               type="password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               placeholder="host-api-key"
               required
-              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:outline-none focus:ring-2 focus:ring-nord-10"
             />
           </div>
 
@@ -92,14 +92,14 @@ export function AddHostModal({ onClose, onSuccess }: AddHostModalProps) {
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border rounded-md hover:bg-gray-50 transition-colors"
+              className="flex-1 px-4 py-2 bg-nord-3 text-nord-6 rounded-md hover:bg-nord-2 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
+              className="flex-1 px-4 py-2 bg-nord-10 text-nord-6 rounded-md hover:bg-nord-9 transition-colors disabled:opacity-50 font-medium"
             >
               {loading ? 'Adding...' : 'Add Host'}
             </button>

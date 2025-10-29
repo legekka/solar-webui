@@ -39,15 +39,15 @@ export function HostCard({
 
   return (
     <>
-    <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+    <div className="bg-nord-1 rounded-lg shadow-lg overflow-hidden">
       {/* Host Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4">
+      <div className="bg-gradient-to-r from-nord-10 to-nord-9 p-4">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
             <Server size={24} />
             <div>
-              <h2 className="text-xl font-bold">{host.name}</h2>
-              <p className="text-sm text-blue-100">{host.url}</p>
+              <h2 className="text-xl font-bold text-nord-6">{host.name}</h2>
+              <p className="text-sm text-nord-4">{host.url}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -61,14 +61,14 @@ export function HostCard({
             </span>
             <button
               onClick={() => onDeleteHost(host.id)}
-              className="p-2 hover:bg-blue-800 rounded transition-colors"
+              className="p-2 hover:bg-nord-8 hover:bg-opacity-30 rounded transition-colors text-nord-6"
               title="Remove host"
             >
               <Trash2 size={16} />
             </button>
           </div>
         </div>
-        <div className="mt-3 flex items-center justify-between text-sm">
+        <div className="mt-3 flex items-center justify-between text-sm text-nord-4">
           <span>
             {runningCount} / {host.instances.length} instances running
           </span>
@@ -76,7 +76,7 @@ export function HostCard({
             {host.last_seen && <span>Last seen: {formatDate(host.last_seen)}</span>}
             <button
               onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-1 px-3 py-1 bg-blue-500 hover:bg-blue-400 rounded transition-colors text-sm font-medium"
+              className="flex items-center gap-1 px-3 py-1 bg-nord-6 hover:bg-nord-5 rounded transition-colors text-sm font-medium text-nord-0 shadow-md"
               title="Add instance"
             >
               <Plus size={16} />

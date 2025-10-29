@@ -66,18 +66,18 @@ export function getStatusColor(status: string): string {
   switch (status) {
     case 'running':
     case 'online':
-      return 'text-green-600 bg-green-100';
+      return 'text-nord-6 bg-nord-14'; // green
     case 'stopped':
     case 'offline':
-      return 'text-gray-600 bg-gray-100';
+      return 'text-nord-4 bg-nord-3'; // blue-gray
     case 'starting':
     case 'stopping':
-      return 'text-yellow-600 bg-yellow-100';
+      return 'text-nord-0 bg-nord-13'; // yellow
     case 'failed':
     case 'error':
-      return 'text-red-600 bg-red-100';
+      return 'text-nord-6 bg-nord-11'; // red
     default:
-      return 'text-gray-600 bg-gray-100';
+      return 'text-nord-4 bg-nord-3'; // blue-gray
   }
 }
 

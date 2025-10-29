@@ -43,12 +43,12 @@ export function InstanceCard({
 
   return (
     <>
-      <div className="bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow">
+      <div className="bg-nord-2 rounded-lg shadow-lg p-4 hover:shadow-xl transition-shadow border border-nord-3">
         {/* Header */}
         <div className="flex items-start justify-between gap-2 mb-3">
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-lg truncate">{instance.config.alias}</h3>
-            <p className="text-sm text-gray-500 truncate" title={instance.config.model}>
+            <h3 className="font-semibold text-lg truncate text-nord-6">{instance.config.alias}</h3>
+            <p className="text-sm text-nord-4 truncate" title={instance.config.model}>
               {instance.config.model}
             </p>
           </div>
@@ -66,7 +66,7 @@ export function InstanceCard({
                 <button
                   onClick={() => setShowEdit(true)}
                   disabled={loading}
-                  className="p-1 hover:bg-blue-50 text-blue-600 rounded transition-colors disabled:opacity-50"
+                  className="p-1 hover:bg-nord-10 hover:bg-opacity-20 text-nord-10 rounded transition-colors disabled:opacity-50"
                   title="Edit instance"
                 >
                   <Edit size={16} />
@@ -74,7 +74,7 @@ export function InstanceCard({
                 <button
                   onClick={() => handleAction(() => onDelete(hostId, instance.id))}
                   disabled={loading}
-                  className="p-1 hover:bg-red-50 text-red-600 rounded transition-colors disabled:opacity-50"
+                  className="p-1 hover:bg-nord-11 hover:bg-opacity-20 text-nord-11 rounded transition-colors disabled:opacity-50"
                   title="Delete instance"
                 >
                   <Trash2 size={16} />
@@ -85,38 +85,38 @@ export function InstanceCard({
         </div>
 
         {/* Details */}
-        <div className="space-y-1 text-sm text-gray-600 mb-3">
+        <div className="space-y-1 text-sm text-nord-4 mb-3">
           {instance.port && (
             <div className="flex justify-between">
               <span>Port:</span>
-              <span className="font-mono">{instance.port}</span>
+              <span className="font-mono text-nord-8">{instance.port}</span>
             </div>
           )}
           {instance.pid && (
             <div className="flex justify-between">
               <span>PID:</span>
-              <span className="font-mono">{instance.pid}</span>
+              <span className="font-mono text-nord-8">{instance.pid}</span>
             </div>
           )}
           {instance.started_at && (
             <div className="flex justify-between">
               <span>Uptime:</span>
-              <span className="font-mono">{formatUptime(instance.started_at)}</span>
+              <span className="font-mono text-nord-8">{formatUptime(instance.started_at)}</span>
             </div>
           )}
           <div className="flex justify-between">
             <span>Context:</span>
-            <span className="font-mono">{instance.config.ctx_size.toLocaleString()}</span>
+            <span className="font-mono text-nord-8">{instance.config.ctx_size.toLocaleString()}</span>
           </div>
           <div className="flex justify-between">
             <span>GPU Layers:</span>
-            <span className="font-mono">{instance.config.n_gpu_layers}</span>
+            <span className="font-mono text-nord-8">{instance.config.n_gpu_layers}</span>
           </div>
         </div>
 
         {/* Error message */}
         {instance.error_message && (
-          <div className="mb-3 p-2 bg-red-50 text-red-700 text-xs rounded">
+          <div className="mb-3 p-2 bg-nord-11 bg-opacity-20 text-nord-11 text-xs rounded border border-nord-11">
             {instance.error_message}
           </div>
         )}
@@ -127,7 +127,7 @@ export function InstanceCard({
             <button
               onClick={() => handleAction(() => onStart(hostId, instance.id))}
               disabled={loading}
-              className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-nord-14 text-nord-0 rounded hover:bg-opacity-90 transition-colors disabled:opacity-50 font-medium"
             >
               <Play size={16} />
               Start
@@ -137,7 +137,7 @@ export function InstanceCard({
               <button
                 onClick={() => handleAction(() => onStop(hostId, instance.id))}
                 disabled={loading}
-                className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors disabled:opacity-50"
+                className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-nord-11 text-nord-6 rounded hover:bg-opacity-90 transition-colors disabled:opacity-50 font-medium"
               >
                 <Square size={16} />
                 Stop
@@ -145,7 +145,7 @@ export function InstanceCard({
               <button
                 onClick={() => handleAction(() => onRestart(hostId, instance.id))}
                 disabled={loading}
-                className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
+                className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-nord-10 text-nord-6 rounded hover:bg-nord-9 transition-colors disabled:opacity-50 font-medium"
               >
                 <RotateCw size={16} />
                 Restart
@@ -154,14 +154,14 @@ export function InstanceCard({
           ) : (
             <button
               disabled
-              className="flex-1 px-3 py-2 bg-gray-300 text-gray-600 rounded cursor-not-allowed"
+              className="flex-1 px-3 py-2 bg-nord-3 text-nord-4 rounded cursor-not-allowed"
             >
               {instance.status}...
             </button>
           )}
           <button
             onClick={() => setShowLogs(true)}
-            className="px-3 py-2 border rounded hover:bg-gray-50 transition-colors"
+            className="px-3 py-2 border border-nord-3 text-nord-4 rounded hover:bg-nord-3 transition-colors"
             title="View logs"
           >
             <FileText size={16} />

@@ -7,6 +7,28 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Nord Polar Night (backgrounds)
+        nord: {
+          0: '#2E3440',
+          1: '#3B4252',
+          2: '#434C5E',
+          3: '#4C566A',
+          // Nord Snow Storm (foregrounds)
+          4: '#D8DEE9',
+          5: '#E5E9F0',
+          6: '#ECEFF4',
+          // Nord Frost (blue/cyan)
+          7: '#8FBCBB',
+          8: '#88C0D0',
+          9: '#81A1C1',
+          10: '#5E81AC',
+          // Nord Aurora (accents)
+          11: '#BF616A', // red
+          12: '#D08770', // orange
+          13: '#EBCB8B', // yellow
+          14: '#A3BE8C', // green
+          15: '#B48EAD', // purple
+        },
         border: "hsl(var(--border))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",

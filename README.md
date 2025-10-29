@@ -64,7 +64,48 @@ The application will be available at `http://localhost:5173`
 
 ## Production Deployment
 
-### Build for Production
+### Option 1: Docker (Recommended)
+
+**Quick Start:**
+
+```bash
+# Create .env file
+cp .env.example .env
+# Edit .env with your production values
+
+# Build and start
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop
+docker-compose down
+```
+
+**Docker Environment Variables:**
+
+Create a `.env` file with:
+
+```bash
+# Solar Control URL - use host.docker.internal if solar-control is on the host
+VITE_SOLAR_CONTROL_URL=http://host.docker.internal:8015
+
+# Solar Control API Key
+VITE_SOLAR_CONTROL_API_KEY=your-solar-control-api-key
+
+# Optional: Change the port (default: 5173)
+PORT=5173
+```
+
+**Important Docker Notes:**
+
+- The webui will be accessible on `http://localhost:5173` (or your custom PORT)
+- Uses `host.docker.internal` to access solar-control running on the host machine
+- Environment variables are baked into the build at container startup
+- Rebuild the image if you change API endpoints: `docker-compose up -d --build`
+
+### Option 2: Build for Production (Native)
 
 ```bash
 npm run build
@@ -72,9 +113,9 @@ npm run build
 
 This creates optimized static files in the `dist/` directory.
 
-### Serve in Production
+### Option 3: Serve in Production (Native)
 
-**Option 1: Using the built-in server (recommended for quick deployment)**
+**Using the built-in server (recommended for quick deployment)**
 
 ```bash
 npm run serve
@@ -82,7 +123,7 @@ npm run serve
 
 This serves the production build on `http://0.0.0.0:5173`
 
-**Option 2: Using a dedicated static file server**
+**Using a dedicated static file server:**
 
 Install `serve` globally:
 ```bash
@@ -90,7 +131,7 @@ npm install -g serve
 serve -s dist -p 5173
 ```
 
-**Option 3: Using nginx**
+**Using nginx:**
 
 Point nginx to the `dist/` directory:
 
@@ -107,19 +148,21 @@ server {
 }
 ```
 
-**Option 4: Deploy to cloud platforms**
+### Option 4: Deploy to Cloud Platforms
 
 The `dist/` folder can be deployed to:
-- Vercel: `vercel --prod`
-- Netlify: `netlify deploy --prod`
-- GitHub Pages
+- **Vercel**: `vercel --prod`
+- **Netlify**: `netlify deploy --prod`
+- **GitHub Pages**
+- **AWS S3 + CloudFront**
 - Any static hosting service
 
-### Important Notes
+### Important Notes for All Deployment Methods
 
+- ⚠️ Environment variables are embedded at **build time** (Vite requirement)
 - Make sure your `.env` file has production URLs before building
-- The build embeds environment variables at build time
-- Rebuild if you change API endpoints or keys
+- For Docker: Rebuild the image if you change API endpoints (`docker-compose up -d --build`)
+- For native: Re-run `npm run build` if you change `.env` values
 
 ## Project Structure
 

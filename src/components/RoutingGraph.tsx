@@ -378,23 +378,13 @@ export function RoutingGraph() {
           }
         }
         
-        /* Smooth position transitions for ALL nodes - but not opacity */
+        /* Enable smooth transitions for React Flow's position updates */
         .react-flow__node {
-          transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+          transition: transform 0.3s ease-out !important;
         }
         
-        /* Don't transition opacity on non-animated nodes */
-        .react-flow__node:not(.request-node-animated) {
-          transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        }
-        
-        /* Smooth edge path transitions */
-        .react-flow__edge.react-flow__edge-default {
-          transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        }
-        
-        .react-flow__edge-path {
-          transition: d 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        .react-flow__edge {
+          transition: opacity 0.2s ease-out !important;
         }
       `}</style>
       <div className="p-4 bg-nord-1 border-b border-nord-3">

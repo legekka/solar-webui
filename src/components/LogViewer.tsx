@@ -3,18 +3,19 @@ import { useWebSocket } from '@/hooks/useWebSocket';
 import { X, Pause, Play } from 'lucide-react';
 
 interface LogViewerProps {
-  hostUrl: string;
+  hostId: string;
   instanceId: string;
   alias: string;
   onClose: () => void;
 }
 
-export function LogViewer({ hostUrl, instanceId, alias, onClose }: LogViewerProps) {
+export function LogViewer({ hostId, instanceId, alias, onClose }: LogViewerProps) {
   const logContainerRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
   
-  // Build WebSocket URL
-  const wsUrl = hostUrl ? `${hostUrl.replace(/^http/, 'ws')}/instances/${instanceId}/logs` : null;
+  // Build WebSocket URL - connect through solar-control proxy
+  const baseUrl = import.meta.env.VITE_SOLAR_CONTROL_URL || 'http://localhost:8000';
+  const wsUrl = `${baseUrl.replace(/^http/, 'ws')}/ws/logs/${hostId}/${instanceId}`;
   
   const { isConnected, messages } = useWebSocket({
     url: wsUrl,

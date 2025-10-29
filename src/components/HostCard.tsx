@@ -105,7 +105,6 @@ export function HostCard({
                 key={instance.id}
                 instance={instance}
                 hostId={host.id}
-                hostUrl={host.url}
                 onStart={onStartInstance}
                 onStop={onStopInstance}
                 onRestart={onRestartInstance}

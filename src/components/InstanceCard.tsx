@@ -8,7 +8,6 @@ import { EditInstanceModal } from './EditInstanceModal';
 interface InstanceCardProps {
   instance: Instance;
   hostId: string;
-  hostUrl: string;
   onStart: (hostId: string, instanceId: string) => Promise<void>;
   onStop: (hostId: string, instanceId: string) => Promise<void>;
   onRestart: (hostId: string, instanceId: string) => Promise<void>;
@@ -19,7 +18,6 @@ interface InstanceCardProps {
 export function InstanceCard({
   instance,
   hostId,
-  hostUrl,
   onStart,
   onStop,
   onRestart,
@@ -172,7 +170,7 @@ export function InstanceCard({
       {/* Log Viewer Modal */}
       {showLogs && (
         <LogViewer
-          hostUrl={hostUrl}
+          hostId={hostId}
           instanceId={instance.id}
           alias={instance.config.alias}
           onClose={() => setShowLogs(false)}

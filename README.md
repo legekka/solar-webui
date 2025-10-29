@@ -20,12 +20,25 @@ npm install
 
 ## Configuration
 
-Create a `.env` file:
+Copy `.env.example` to `.env` and configure your **solar-control** connection:
 
 ```bash
-VITE_API_URL=http://localhost:8000
-VITE_API_KEY=your-gateway-api-key
+cp .env.example .env
+# Then edit .env with your actual values
 ```
+
+Example `.env` configuration:
+
+```bash
+# Solar Control API Configuration
+VITE_SOLAR_CONTROL_URL=http://localhost:8015
+VITE_SOLAR_CONTROL_API_KEY=your-solar-control-api-key
+```
+
+**Important Notes:**
+- The `VITE_` prefix is **required** by Vite to expose these variables to the browser
+- Point these to your **solar-control** instance, NOT individual solar-host servers
+- `solar-control` acts as the gateway to all your solar-host instances
 
 ## Development
 

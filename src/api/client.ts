@@ -10,13 +10,46 @@ class SolarClient {
   private client: AxiosInstance;
 
   constructor(baseURL?: string, apiKey?: string) {
+    const effectiveBaseURL = baseURL || import.meta.env.VITE_SOLAR_CONTROL_URL || 'http://localhost:8000';
+    const effectiveApiKey = apiKey || import.meta.env.VITE_SOLAR_CONTROL_API_KEY || '';
+    
+    // Debug logging (only in development)
+    if (import.meta.env.DEV) {
+      console.log('SolarClient initialized:', {
+        baseURL: effectiveBaseURL,
+        hasApiKey: !!effectiveApiKey,
+        apiKeyLength: effectiveApiKey.length
+      });
+    }
+    
     this.client = axios.create({
-      baseURL: baseURL || import.meta.env.VITE_API_URL || 'http://localhost:8000',
+      baseURL: effectiveBaseURL,
       headers: {
-        'X-API-Key': apiKey || import.meta.env.VITE_API_KEY || '',
+        'X-API-Key': effectiveApiKey,
         'Content-Type': 'application/json',
       },
     });
+    
+    // Add request interceptor to log outgoing requests in dev
+    if (import.meta.env.DEV) {
+      this.client.interceptors.request.use((config) => {
+        console.log(`→ ${config.method?.toUpperCase()} ${config.url}`, {
+          hasApiKey: !!config.headers['X-API-Key']
+        });
+        return config;
+      });
+    }
+    
+    // Add response interceptor to log errors
+    this.client.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response?.status === 401) {
+          console.error('❌ 401 Unauthorized - Check your API key in .env file');
+        }
+        return Promise.reject(error);
+      }
+    );
   }
 
   // Host Management

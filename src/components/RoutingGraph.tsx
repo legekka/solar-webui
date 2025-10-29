@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import ReactFlow, {
   Node,
   Edge,
@@ -53,11 +53,13 @@ export function RoutingGraph() {
 
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const previousEdgeIdsRef = useRef<Set<string>>(new Set());
 
   // Build the graph structure
   useEffect(() => {
     const newNodes: Node[] = [];
     const newEdges: Edge[] = [];
+    const currentEdgeIds = new Set<string>();
 
     // Calculate stats for Solar Control
     const onlineHosts = hosts.filter(h => h.status === 'online').length;
@@ -282,8 +284,12 @@ export function RoutingGraph() {
       });
 
       // Edge from request to Solar Control
+      const edge1Id = `${requestNodeId}-to-control`;
+      const isEdge1New = !previousEdgeIdsRef.current.has(edge1Id);
+      currentEdgeIds.add(edge1Id);
+      
       newEdges.push({
-        id: `${requestNodeId}-to-control`,
+        id: edge1Id,
         source: requestNodeId,
         target: SOLAR_CONTROL_NODE_ID,
         animated: request.status === 'pending' || request.status === 'processing' || request.status === 'routed',
@@ -295,7 +301,7 @@ export function RoutingGraph() {
           type: MarkerType.ArrowClosed,
           color: getStatusColor(request.status),
         },
-        className: request.removing ? 'request-edge removing-edge' : 'request-edge',
+        className: request.removing ? 'request-edge removing-edge' : (isEdge1New ? 'request-edge request-edge-new' : 'request-edge'),
       });
 
       // Edges from Solar Control → Host → Instance (if routed)
@@ -304,8 +310,12 @@ export function RoutingGraph() {
         const instanceNodeId = `instance-${request.host_id}-${request.instance_id}`;
         
         // Edge 1: Solar Control → Host
+        const edge2Id = `control-to-${hostNodeId}-${request.request_id}`;
+        const isEdge2New = !previousEdgeIdsRef.current.has(edge2Id);
+        currentEdgeIds.add(edge2Id);
+        
         newEdges.push({
-          id: `control-to-${hostNodeId}-${request.request_id}`,
+          id: edge2Id,
           source: SOLAR_CONTROL_NODE_ID,
           target: hostNodeId,
           animated: request.status === 'processing' || request.status === 'routed',
@@ -317,12 +327,16 @@ export function RoutingGraph() {
             type: MarkerType.ArrowClosed,
             color: getStatusColor(request.status),
           },
-          className: request.removing ? 'request-edge removing-edge' : 'request-edge',
+          className: request.removing ? 'request-edge removing-edge' : (isEdge2New ? 'request-edge request-edge-new' : 'request-edge'),
         });
         
         // Edge 2: Host → Instance
+        const edge3Id = `${hostNodeId}-to-${instanceNodeId}-${request.request_id}`;
+        const isEdge3New = !previousEdgeIdsRef.current.has(edge3Id);
+        currentEdgeIds.add(edge3Id);
+        
         newEdges.push({
-          id: `${hostNodeId}-to-${instanceNodeId}-${request.request_id}`,
+          id: edge3Id,
           source: hostNodeId,
           target: instanceNodeId,
           animated: request.status === 'processing' || request.status === 'routed',
@@ -334,13 +348,16 @@ export function RoutingGraph() {
             type: MarkerType.ArrowClosed,
             color: getStatusColor(request.status),
           },
-          className: request.removing ? 'request-edge removing-edge' : 'request-edge',
+          className: request.removing ? 'request-edge removing-edge' : (isEdge3New ? 'request-edge request-edge-new' : 'request-edge'),
         });
       }
     });
 
     setNodes(newNodes);
     setEdges(newEdges);
+    
+    // Update the ref for next render
+    previousEdgeIdsRef.current = currentEdgeIds;
   }, [requests, hosts, removeRequest, setNodes, setEdges]);
 
   if (loading) {
@@ -386,12 +403,18 @@ export function RoutingGraph() {
           transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
         }
         
-        /* Fade animations ONLY for edges connected to request nodes */
+        /* Smooth color transitions for all request edges */
         .react-flow__edge.request-edge {
+          transition: stroke 0.3s ease-out !important;
+        }
+        
+        /* Fade-in animation ONLY for NEW edges */
+        .react-flow__edge.request-edge-new {
           animation: edgeFadeIn 0.3s ease-out;
         }
         
-        .react-flow__edge.request-edge.removing-edge {
+        /* Fade-out animation ONLY for removing edges */
+        .react-flow__edge.removing-edge {
           animation: edgeFadeOut 0.3s ease-out forwards;
         }
         

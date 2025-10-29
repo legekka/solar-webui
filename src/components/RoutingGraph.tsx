@@ -351,7 +351,7 @@ export function RoutingGraph() {
   return (
     <div className="w-full bg-nord-0">
       <style>{`
-        /* Fade in animation - entire node including background/border */
+        /* Fade in/out animations for request nodes */
         .react-flow__node.request-node-animated {
           animation: fadeIn 0.3s ease-out;
         }
@@ -378,13 +378,37 @@ export function RoutingGraph() {
           }
         }
         
-        /* Enable smooth transitions for React Flow's position updates */
+        /* Smooth position transitions for nodes */
         .react-flow__node {
-          transition: transform 0.3s ease-out !important;
+          transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
         }
         
+        /* Fade in/out animations for edges (arrows) */
         .react-flow__edge {
-          transition: opacity 0.2s ease-out !important;
+          animation: edgeFadeIn 0.3s ease-out;
+          transition: opacity 0.3s ease-out !important;
+        }
+        
+        .react-flow__edge.removing-edge {
+          animation: edgeFadeOut 0.3s ease-out forwards;
+        }
+        
+        @keyframes edgeFadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+        
+        @keyframes edgeFadeOut {
+          from {
+            opacity: 1;
+          }
+          to {
+            opacity: 0;
+          }
         }
       `}</style>
       <div className="p-4 bg-nord-1 border-b border-nord-3">

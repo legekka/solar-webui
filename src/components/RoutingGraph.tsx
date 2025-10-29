@@ -277,7 +277,10 @@ export function RoutingGraph() {
           width: 240,
           minHeight: 100,
           boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+          transition: 'all 0.3s ease-in-out',
+          opacity: 1,
         },
+        className: 'request-node-animated',
       });
 
       // Edge from request to Solar Control
@@ -349,6 +352,48 @@ export function RoutingGraph() {
 
   return (
     <div className="w-full bg-nord-0">
+      <style>{`
+        .react-flow__node.request-node-animated {
+          animation: fadeIn 0.3s ease-in-out;
+        }
+        
+        .react-flow__node.request-node-animated.removing {
+          animation: fadeOut 0.3s ease-in-out;
+          opacity: 0;
+        }
+        
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: scale(0.9) translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+          }
+        }
+        
+        @keyframes fadeOut {
+          from {
+            opacity: 1;
+            transform: scale(1);
+          }
+          to {
+            opacity: 0;
+            transform: scale(0.9) translateY(-10px);
+          }
+        }
+        
+        /* Smooth transitions for position changes */
+        .react-flow__node {
+          transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
+        
+        /* Smooth edge animations */
+        .react-flow__edge {
+          transition: opacity 0.3s ease-in-out !important;
+        }
+      `}</style>
       <div className="p-4 bg-nord-1 border-b border-nord-3">
         <h1 className="text-2xl font-bold text-nord-6">Solar Routing Visualization</h1>
         <p className="text-sm text-nord-4 mt-1">
@@ -363,6 +408,9 @@ export function RoutingGraph() {
           onEdgesChange={onEdgesChange}
           fitView
           attributionPosition="bottom-right"
+          nodesDraggable={false}
+          nodesConnectable={false}
+          elementsSelectable={false}
         >
           <Controls />
           <MiniMap

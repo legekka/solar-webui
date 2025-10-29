@@ -65,6 +65,14 @@ export function RoutingGraph() {
     const runningInstances = hosts.reduce((sum, h) => sum + h.instances.filter(i => i.status === 'running').length, 0);
     const activeRequests = Array.from(requests.values()).filter(r => r.status === 'processing' || r.status === 'routed').length;
 
+    // Track which instances are currently processing requests
+    const processingInstances = new Set<string>();
+    Array.from(requests.values()).forEach(req => {
+      if ((req.status === 'processing' || req.status === 'routed') && req.host_id && req.instance_id) {
+        processingInstances.add(`${req.host_id}-${req.instance_id}`);
+      }
+    });
+
     const solarControlBg = '#5E81AC'; // nord10 - blue
 
     // 1. Solar Control node (center)
@@ -146,6 +154,10 @@ export function RoutingGraph() {
       host.instances.forEach((instance) => {
         const instanceNodeId = `instance-${host.id}-${instance.id}`;
         const instanceBg = instance.status === 'running' ? '#88C0D0' : '#434C5E'; // nord8 cyan or nord2
+        
+        // Check if this instance is currently processing a request
+        const isProcessing = processingInstances.has(`${host.id}-${instance.id}`);
+        const borderColor = isProcessing ? '#EBCB8B' : getBrighterColor(instanceBg); // nord13 yellow when processing
 
         newNodes.push({
           id: instanceNodeId,
@@ -168,11 +180,12 @@ export function RoutingGraph() {
           style: {
             background: instanceBg,
             color: instance.status === 'running' ? '#2E3440' : '#D8DEE9', // dark or light text
-            border: `1px solid ${getBrighterColor(instanceBg)}`,
+            border: `2px solid ${borderColor}`,
             borderRadius: '8px',
             padding: '6px',
             width: 140,
             boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+            transition: 'border 0.3s ease',
           },
         });
 

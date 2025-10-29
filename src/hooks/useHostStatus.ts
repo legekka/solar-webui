@@ -23,7 +23,7 @@ export function useHostStatus(
 
   const connect = useCallback(() => {
     const wsProtocol = baseUrl.startsWith('https') ? 'wss' : 'ws';
-    const wsUrl = `${wsProtocol}://${baseUrl.replace(/^https?:\/\//, '')}/status`;
+    const wsUrl = `${wsProtocol}://${baseUrl.replace(/^https?:\/\//, '')}/ws/status`;
 
     console.log('Connecting to status WebSocket:', wsUrl);
 
@@ -42,6 +42,11 @@ export function useHostStatus(
     };
 
     ws.onmessage = (event) => {
+      // Ignore plain text responses like "pong"
+      if (typeof event.data === 'string' && event.data === 'pong') {
+        return;
+      }
+
       try {
         const message: StatusMessage = JSON.parse(event.data);
 

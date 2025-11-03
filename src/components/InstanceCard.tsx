@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Play, Square, RotateCw, FileText, Trash2, Edit } from 'lucide-react';
 import { Instance, InstanceConfig } from '@/api/types';
 import { cn, getStatusColor, formatUptime } from '@/lib/utils';
@@ -30,6 +30,37 @@ export function InstanceCard({
   const [showEdit, setShowEdit] = useState(false);
 
   const { state: runtimeState } = useInstanceState(hostId, instance.id);
+
+  // Smooth prefill appearance/disappearance
+  const [prefillVisible, setPrefillVisible] = useState(false);
+  const hideTimerRef = useRef<number | null>(null);
+  const prefillActive = typeof runtimeState?.prefill_progress === 'number' && runtimeState.prefill_progress < 1;
+
+  useEffect(() => {
+    if (prefillActive) {
+      if (hideTimerRef.current) {
+        clearTimeout(hideTimerRef.current);
+        hideTimerRef.current = null;
+      }
+      setPrefillVisible(true);
+    } else {
+      // Graceful fade-out to avoid flicker when prefill ends quickly
+      if (hideTimerRef.current) {
+        clearTimeout(hideTimerRef.current);
+      }
+      hideTimerRef.current = window.setTimeout(() => {
+        setPrefillVisible(false);
+        hideTimerRef.current = null;
+      }, 400);
+    }
+
+    return () => {
+      if (hideTimerRef.current) {
+        clearTimeout(hideTimerRef.current);
+        hideTimerRef.current = null;
+      }
+    };
+  }, [prefillActive]);
 
   const handleAction = async (action: () => Promise<void>) => {
     setLoading(true);
@@ -92,17 +123,34 @@ export function InstanceCard({
 
         {/* Details */}
         <div className="space-y-1 text-sm text-nord-4 mb-3">
-          {typeof runtimeState?.prefill_progress === 'number' && runtimeState.prefill_progress < 1 && (
-            <div className="mb-2">
-              <div className="flex justify-between items-center mb-1">
-                <span>Prefill</span>
-                <span className="font-mono text-nord-8">{Math.round(runtimeState.prefill_progress * 100)}%</span>
-              </div>
-              <div className="w-full h-1.5 bg-nord-3 rounded">
-                <div className="h-1.5 bg-nord-10 rounded" style={{ width: `${Math.max(0, Math.min(100, runtimeState.prefill_progress * 100))}%` }} />
-              </div>
+          <div
+            className="mb-2 overflow-hidden"
+            style={{
+              opacity: prefillVisible ? 1 : 0,
+              transform: prefillVisible ? 'scaleY(1)' : 'scaleY(0.95)',
+              transformOrigin: 'top',
+              maxHeight: prefillVisible ? 28 : 0,
+              transition: 'opacity 200ms ease, transform 200ms ease, max-height 250ms ease',
+            }}
+          >
+            <div className="flex justify-between items-center mb-1">
+              <span>Prefill</span>
+              <span className="font-mono text-nord-8">
+                {typeof runtimeState?.prefill_progress === 'number'
+                  ? Math.round(runtimeState.prefill_progress * 100)
+                  : 0}%
+              </span>
             </div>
-          )}
+            <div className="w-full h-1.5 bg-nord-3 rounded">
+              <div
+                className="h-1.5 bg-nord-10 rounded"
+                style={{
+                  width: `${Math.max(0, Math.min(100, (runtimeState?.prefill_progress || 0) * 100))}%`,
+                  transition: 'width 200ms ease',
+                }}
+              />
+            </div>
+          </div>
           {instance.port && (
             <div className="flex justify-between">
               <span>Port:</span>

@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react
 import { Dashboard } from './components/Dashboard';
 import { RoutingGraph } from './components/RoutingGraph';
 import { Activity, Server } from 'lucide-react';
+import { RoutingEventsProvider } from './context/RoutingEventsContext';
 
 function Navigation() {
   const location = useLocation();
@@ -43,14 +44,16 @@ function Navigation() {
 function App() {
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-nord-0">
-        <Navigation />
-        <Routes>
-          <Route path="/" element={<Navigate to="/routing" replace />} />
-          <Route path="/routing" element={<RoutingGraph />} />
-          <Route path="/hosts" element={<Dashboard />} />
-        </Routes>
-      </div>
+      <RoutingEventsProvider>
+        <div className="min-h-screen bg-nord-0">
+          <Navigation />
+          <Routes>
+            <Route path="/" element={<Navigate to="/routing" replace />} />
+            <Route path="/routing" element={<RoutingGraph />} />
+            <Route path="/hosts" element={<Dashboard />} />
+          </Routes>
+        </div>
+      </RoutingEventsProvider>
     </BrowserRouter>
   );
 }

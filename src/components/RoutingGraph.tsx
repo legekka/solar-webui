@@ -11,8 +11,10 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { X } from 'lucide-react';
-import { useRoutingEvents, RequestState } from '@/hooks/useRoutingEvents';
+import { RequestState } from '@/hooks/useRoutingEvents';
+import { useRoutingEventsContext } from '@/context/RoutingEventsContext';
 import { useInstances } from '@/hooks/useInstances';
+import { useInstancesState } from '@/hooks/useInstancesState';
 
 const SOLAR_CONTROL_NODE_ID = 'solar-control';
 
@@ -47,9 +49,15 @@ function getBrighterColor(color: string): string {
 }
 
 export function RoutingGraph() {
-  const baseUrl = import.meta.env.VITE_SOLAR_CONTROL_URL || 'http://localhost:8000';
-  const { requests, removeRequest } = useRoutingEvents(baseUrl);
+  const { requests, removeRequest } = useRoutingEventsContext();
   const { hosts, loading } = useInstances(10000);
+  // Build a list of running instances to subscribe to runtime state
+  const runtimeTargets = hosts.flatMap(h =>
+    h.instances
+      .filter(i => i.status === 'running')
+      .map(i => ({ hostId: h.id, instanceId: i.id }))
+  );
+  const instanceStateMap = useInstancesState(runtimeTargets);
 
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -159,7 +167,17 @@ export function RoutingGraph() {
         
         // Check if this instance is currently processing a request
         const isProcessing = processingInstances.has(`${host.id}-${instance.id}`);
-        const borderColor = isProcessing ? '#EBCB8B' : getBrighterColor(instanceBg); // nord13 yellow when processing
+        // Runtime phase UI from state map
+        const key = `${host.id}-${instance.id}`;
+        const runtime = instanceStateMap.get(key);
+        const phase = runtime?.phase;
+        const prefillPct = typeof runtime?.prefill_progress === 'number' ? Math.round(runtime!.prefill_progress * 100) : null;
+        // Border color by phase: prefill=yellow, generating=green, idle=default
+        const borderColor = phase === 'prefill'
+          ? '#EBCB8B' // nord13
+          : phase === 'generating'
+          ? '#A3BE8C' // nord14
+          : isProcessing ? '#EBCB8B' : getBrighterColor(instanceBg);
 
         newNodes.push({
           id: instanceNodeId,
@@ -175,7 +193,31 @@ export function RoutingGraph() {
                 </div>
                 <div className={`text-[10px] font-medium ${instance.status === 'running' ? 'text-nord-0 opacity-70' : 'text-nord-4'}`}>
                   {instance.status}
+                  {runtime && instance.status === 'running' && (
+                    <>
+                      {' · '}
+                      <span className="uppercase tracking-wide">
+                        {phase === 'prefill' ? 'prefill' : phase === 'generating' ? 'generating' : 'idle'}
+                      </span>
+                      {typeof runtime.active_slots === 'number' && runtime.active_slots > 0 && (
+                        <> · {runtime.active_slots} slot{runtime.active_slots > 1 ? 's' : ''}</>
+                      )}
+                    </>
+                  )}
                 </div>
+                {phase === 'prefill' && typeof prefillPct === 'number' && prefillPct < 100 && (
+                  <div className="w-full h-1 mt-1 bg-nord-3 rounded">
+                    <div className="h-1 bg-nord-13 rounded" style={{ width: `${Math.max(0, Math.min(100, prefillPct))}%` }} />
+                  </div>
+                )}
+                {phase === 'generating' && typeof runtime?.generated_tokens === 'number' && (
+                  <div className="mt-1 text-[10px] text-nord-0 opacity-80">
+                    gen: {runtime.generated_tokens} tok
+                    {typeof runtime.decode_tps === 'number' && (
+                      <> · {runtime.decode_tps.toFixed(1)} t/s</>
+                    )}
+                  </div>
+                )}
               </div>
             ),
           },

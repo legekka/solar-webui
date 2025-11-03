@@ -75,8 +75,17 @@ export interface ModelInfo {
 export interface InstanceRuntimeState {
   instance_id: string;
   busy: boolean;
+  phase: 'idle' | 'prefill' | 'generating';
   prefill_progress?: number | null;
   active_slots: number;
+  slot_id?: number | null;
+  task_id?: number | null;
+  prefill_prompt_tokens?: number | null;
+  generated_tokens?: number | null;
+  decode_tps?: number | null;
+  decode_ms_per_token?: number | null;
+  checkpoint_index?: number | null;
+  checkpoint_total?: number | null;
   timestamp: string;
 }
 

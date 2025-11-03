@@ -4,6 +4,7 @@ import { Instance, InstanceConfig } from '@/api/types';
 import { cn, getStatusColor, formatUptime } from '@/lib/utils';
 import { LogViewer } from './LogViewer';
 import { EditInstanceModal } from './EditInstanceModal';
+import { useInstanceState } from '@/hooks/useInstanceState';
 
 interface InstanceCardProps {
   instance: Instance;
@@ -27,6 +28,8 @@ export function InstanceCard({
   const [loading, setLoading] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+
+  const { state: runtimeState } = useInstanceState(hostId, instance.id);
 
   const handleAction = async (action: () => Promise<void>) => {
     setLoading(true);
@@ -59,6 +62,11 @@ export function InstanceCard({
             >
               {instance.status}
             </span>
+            {runtimeState?.busy && (
+              <span className="px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap bg-nord-13 text-nord-0 animate-pulse" title={`Active slots: ${runtimeState.active_slots}`}>
+                busy
+              </span>
+            )}
             {(instance.status === 'stopped' || instance.status === 'failed') && (
               <>
                 <button
@@ -84,6 +92,17 @@ export function InstanceCard({
 
         {/* Details */}
         <div className="space-y-1 text-sm text-nord-4 mb-3">
+          {typeof runtimeState?.prefill_progress === 'number' && runtimeState.prefill_progress < 1 && (
+            <div className="mb-2">
+              <div className="flex justify-between items-center mb-1">
+                <span>Prefill</span>
+                <span className="font-mono text-nord-8">{Math.round(runtimeState.prefill_progress * 100)}%</span>
+              </div>
+              <div className="w-full h-1.5 bg-nord-3 rounded">
+                <div className="h-1.5 bg-nord-10 rounded" style={{ width: `${Math.max(0, Math.min(100, runtimeState.prefill_progress * 100))}%` }} />
+              </div>
+            </div>
+          )}
           {instance.port && (
             <div className="flex justify-between">
               <span>Port:</span>

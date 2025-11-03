@@ -37,6 +37,10 @@ export interface Instance {
   started_at?: string;
   error_message?: string;
   retry_count: number;
+  // Ephemeral runtime fields (provided via separate state API/WS)
+  busy?: boolean;
+  prefill_progress?: number;
+  active_slots?: number;
 }
 
 export interface Host {
@@ -65,6 +69,22 @@ export interface ModelInfo {
   object: string;
   created: number;
   owned_by: string;
+}
+
+// Runtime state structures
+export interface InstanceRuntimeState {
+  instance_id: string;
+  busy: boolean;
+  prefill_progress?: number | null;
+  active_slots: number;
+  timestamp: string;
+}
+
+export interface InstanceStateEvent {
+  seq: number;
+  timestamp: string;
+  type: 'instance_state';
+  data: InstanceRuntimeState;
 }
 
 export interface HostCreateRequest {

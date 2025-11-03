@@ -4,6 +4,7 @@ import {
   HostCreateRequest,
   Instance,
   ModelInfo,
+  InstanceRuntimeState,
 } from './types';
 
 class SolarClient {
@@ -112,6 +113,18 @@ class SolarClient {
   async deleteInstance(hostId: string, instanceId: string): Promise<{ instance: Instance; message: string }> {
     const response = await this.client.delete(`/hosts/${hostId}/instances/${instanceId}`);
     return response.data;
+  }
+
+  // Instance runtime state (via solar-control proxy)
+  async getInstanceState(hostId: string, instanceId: string): Promise<InstanceRuntimeState> {
+    const response = await this.client.get(`/hosts/${hostId}/instances/${instanceId}/state`);
+    return response.data;
+  }
+
+  getInstanceStateWebSocketUrl(controlBaseUrl: string, hostId: string, instanceId: string): string {
+    const wsProtocol = controlBaseUrl.startsWith('https') ? 'wss' : 'ws';
+    const base = controlBaseUrl.replace(/^https?:\/\//, '');
+    return `${wsProtocol}://${base}/ws/instances/${hostId}/${instanceId}/state`;
   }
 
   // OpenAI Gateway

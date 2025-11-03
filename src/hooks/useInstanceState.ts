@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import solarClient from '@/api/client';
-import { InstanceRuntimeState, InstanceStateEvent } from '@/api/types';
+import { InstanceRuntimeState } from '@/api/types';
 
 export function useInstanceState(hostId: string, instanceId: string) {
   const [state, setState] = useState<InstanceRuntimeState | null>(null);

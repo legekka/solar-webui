@@ -138,7 +138,7 @@ export function GatewayDashboard() {
       </div>
 
       {/* Stats cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
         <div className="bg-nord-1 border border-nord-3 rounded p-4">
           <div className="text-nord-4 text-sm">Completed</div>
           <div className="text-nord-14 text-2xl font-semibold">{stats?.completed ?? '—'}</div>
@@ -154,6 +154,16 @@ export function GatewayDashboard() {
         <div className="bg-nord-1 border border-nord-3 rounded p-4">
           <div className="text-nord-4 text-sm">Rerouted Requests</div>
           <div className="text-nord-13 text-2xl font-semibold">{stats?.rerouted_requests ?? '—'}</div>
+        </div>
+        <div className="bg-nord-1 border border-nord-3 rounded p-4">
+          <div className="text-nord-4 text-sm">Tokens In (Prompt)</div>
+          <div className="text-nord-6 text-lg">{stats ? stats.token_in_total : '—'}</div>
+          <div className="text-nord-4 text-xs">avg {stats ? stats.avg_tokens_in.toFixed(1) : '—'}</div>
+        </div>
+        <div className="bg-nord-1 border border-nord-3 rounded p-4">
+          <div className="text-nord-4 text-sm">Tokens Out (Completion)</div>
+          <div className="text-nord-6 text-lg">{stats ? stats.token_out_total : '—'}</div>
+          <div className="text-nord-4 text-xs">avg {stats ? stats.avg_tokens_out.toFixed(1) : '—'}</div>
         </div>
       </div>
 
@@ -224,6 +234,9 @@ export function GatewayDashboard() {
                 <th className="text-left px-3 py-2">Model</th>
                 <th className="text-left px-3 py-2">Status</th>
                 <th className="text-left px-3 py-2">Host</th>
+                <th className="text-left px-3 py-2">Prompt tok</th>
+                <th className="text-left px-3 py-2">Completion tok</th>
+                <th className="text-left px-3 py-2">Total tok</th>
                 <th className="text-left px-3 py-2">Duration</th>
                 <th className="text-left px-3 py-2">Attempts</th>
                 <th className="text-left px-3 py-2">Endpoint</th>
@@ -245,6 +258,9 @@ export function GatewayDashboard() {
                       )}
                     </td>
                     <td className="px-3 py-2">{r.host_name || r.host_id || '—'}</td>
+                    <td className="px-3 py-2">{typeof r.prompt_tokens === 'number' ? r.prompt_tokens : '—'}</td>
+                    <td className="px-3 py-2">{typeof r.completion_tokens === 'number' ? r.completion_tokens : '—'}</td>
+                    <td className="px-3 py-2">{typeof r.total_tokens === 'number' ? r.total_tokens : (typeof r.prompt_tokens === 'number' && typeof r.completion_tokens === 'number' ? r.prompt_tokens + r.completion_tokens : '—')}</td>
                     <td className="px-3 py-2">{r.duration_s?.toFixed(2)}s</td>
                     <td className="px-3 py-2">{r.attempts}</td>
                     <td className="px-3 py-2">{r.endpoint}</td>
@@ -270,6 +286,68 @@ export function GatewayDashboard() {
               <option value={50}>50</option>
               <option value={100}>100</option>
             </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Breakdown tables */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-nord-1 border border-nord-3 rounded">
+          <div className="p-4 border-b border-nord-3 text-nord-6 font-medium">By Model</div>
+          <div className="overflow-auto">
+            <table className="min-w-full text-sm">
+              <thead className="bg-nord-2 text-nord-4">
+                <tr>
+                  <th className="text-left px-3 py-2">Model</th>
+                  <th className="text-left px-3 py-2">Completed</th>
+                  <th className="text-left px-3 py-2">Tokens In</th>
+                  <th className="text-left px-3 py-2">Tokens Out</th>
+                  <th className="text-left px-3 py-2">Avg Duration</th>
+                </tr>
+              </thead>
+              <tbody className="text-nord-6">
+                {stats?.models?.length ? stats.models.map((m) => (
+                  <tr key={m.model} className="border-t border-nord-3">
+                    <td className="px-3 py-2">{m.model}</td>
+                    <td className="px-3 py-2">{m.completed}</td>
+                    <td className="px-3 py-2">{m.token_in}</td>
+                    <td className="px-3 py-2">{m.token_out}</td>
+                    <td className="px-3 py-2">{m.avg_duration_s.toFixed(2)}s</td>
+                  </tr>
+                )) : (
+                  <tr><td colSpan={5} className="px-3 py-4 text-center text-nord-4">No data</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div className="bg-nord-1 border border-nord-3 rounded">
+          <div className="p-4 border-b border-nord-3 text-nord-6 font-medium">By Host</div>
+          <div className="overflow-auto">
+            <table className="min-w-full text-sm">
+              <thead className="bg-nord-2 text-nord-4">
+                <tr>
+                  <th className="text-left px-3 py-2">Host</th>
+                  <th className="text-left px-3 py-2">Completed</th>
+                  <th className="text-left px-3 py-2">Tokens In</th>
+                  <th className="text-left px-3 py-2">Tokens Out</th>
+                  <th className="text-left px-3 py-2">Avg Duration</th>
+                </tr>
+              </thead>
+              <tbody className="text-nord-6">
+                {stats?.hosts?.length ? stats.hosts.map((h) => (
+                  <tr key={h.host_id} className="border-t border-nord-3">
+                    <td className="px-3 py-2">{h.host_name || h.host_id}</td>
+                    <td className="px-3 py-2">{h.completed}</td>
+                    <td className="px-3 py-2">{h.token_in}</td>
+                    <td className="px-3 py-2">{h.token_out}</td>
+                    <td className="px-3 py-2">{h.avg_duration_s.toFixed(2)}s</td>
+                  </tr>
+                )) : (
+                  <tr><td colSpan={5} className="px-3 py-4 text-center text-nord-4">No data</td></tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>

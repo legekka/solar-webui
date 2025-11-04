@@ -114,6 +114,12 @@ export interface GatewayStats {
   missed: number;
   error: number;
   rerouted_requests: number;
+  token_in_total: number;
+  token_out_total: number;
+  avg_tokens_in: number;
+  avg_tokens_out: number;
+  models?: Array<{ model: string; completed: number; token_in: number; token_out: number; avg_duration_s: number }>;
+  hosts?: Array<{ host_id: string; host_name?: string; completed: number; token_in: number; token_out: number; avg_duration_s: number }>;
 }
 
 export interface GatewayRequestSummary {
@@ -133,6 +139,11 @@ export interface GatewayRequestSummary {
   instance_id?: string;
   instance_url?: string;
   error_message?: string;
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
+  decode_tps?: number;
+  decode_ms_per_token?: number;
 }
 
 export interface GatewayRequestsResponse {

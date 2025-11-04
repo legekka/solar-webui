@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Activity, AlertTriangle, CheckCircle2, RefreshCw, RotateCcw, TriangleAlert } from 'lucide-react';
 import solarClient from '@/api/client';
 import { GatewayRequestSummary, GatewayRequestsResponse, GatewayStats } from '@/api/types';
@@ -15,7 +15,7 @@ function isoInput(dt: Date) {
 }
 
 export function GatewayDashboard() {
-  const { events, addRecentEvents } = useRoutingEventsContext();
+  const { events, addRecentEvents, requests } = useRoutingEventsContext();
 
   // Time range
   const now = new Date();
@@ -66,6 +66,28 @@ export function GatewayDashboard() {
     refreshRequests();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fromIso, toIso, statusFilter, page, limit]);
+
+  // Throttled live refresh on request completion/error events
+  const refreshThrottleRef = useRef<number | null>(null);
+  const completedCount = useMemo(() => {
+    let c = 0;
+    requests.forEach((r) => {
+      if (r.status === 'success' || r.status === 'error') c += 1;
+    });
+    return c;
+  }, [requests]);
+
+  useEffect(() => {
+    // Only auto-refresh if the time window includes now (i.e., user is viewing recent data)
+    const windowEndsNearNow = Math.abs(new Date(toIso).getTime() - Date.now()) < 2 * 60 * 1000; // 2 min
+    if (!windowEndsNearNow) return;
+    if (refreshThrottleRef.current !== null) return;
+    refreshThrottleRef.current = window.setTimeout(() => {
+      refreshThrottleRef.current = null;
+      refreshRequests();
+      refreshStats();
+    }, 1000);
+  }, [completedCount]);
 
   const handleLoadRecentEvents = async () => {
     const res = await solarClient.getRecentGatewayEvents({ from: fromIso, to: toIso, limit: 1000, types: 'request_error,request_reroute' });

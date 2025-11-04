@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import solarClient from '@/api/client';
 import { Host, Instance } from '@/api/types';
-import { useHostStatus } from './useHostStatus';
+import { useRoutingEventsContext } from '@/context/RoutingEventsContext';
 
 interface HostWithInstances extends Host {
   instances: Instance[];
@@ -11,6 +11,7 @@ export function useInstances(refreshInterval = 10000) {
   const [hosts, setHosts] = useState<HostWithInstances[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { hostStatuses } = useRoutingEventsContext();
 
   const fetchData = useCallback(async () => {
     try {
@@ -77,31 +78,17 @@ export function useInstances(refreshInterval = 10000) {
     }
   }, [fetchData]);
 
-  // Handle real-time status updates from WebSocket
-  const handleStatusUpdate = useCallback((update: { host_id: string; status: string; memory?: any }) => {
-    setHosts((prevHosts) =>
-      prevHosts.map((host) =>
-        host.id === update.host_id
-          ? { ...host, status: update.status as any, memory: update.memory || host.memory }
-          : host
-      )
-    );
-  }, []);
-
-  const handleInitialStatus = useCallback((statuses: Array<{ host_id: string; status: string; memory?: any }>) => {
+  // Apply global status updates from context
+  useEffect(() => {
+    if (!hostStatuses) return;
     setHosts((prevHosts) =>
       prevHosts.map((host) => {
-        const statusUpdate = statuses.find((s) => s.host_id === host.id);
-        return statusUpdate 
-          ? { ...host, status: statusUpdate.status as any, memory: statusUpdate.memory || host.memory } 
-          : host;
+        const s = hostStatuses.get(host.id);
+        if (!s) return host;
+        return { ...host, status: s.status as any, memory: s.memory || host.memory };
       })
     );
-  }, []);
-
-  // Connect to status WebSocket
-  const baseUrl = import.meta.env.VITE_SOLAR_CONTROL_URL || 'http://localhost:8000';
-  useHostStatus(baseUrl, handleStatusUpdate, handleInitialStatus);
+  }, [hostStatuses]);
 
   return {
     hosts,

@@ -4,9 +4,17 @@ import { RoutingGraph } from './components/RoutingGraph';
 import { GatewayDashboard } from './components/GatewayDashboard';
 import { Activity, Server } from 'lucide-react';
 import { RoutingEventsProvider } from './context/RoutingEventsContext';
+import { useRoutingEventsContext } from './context/RoutingEventsContext';
 
 function Navigation() {
   const location = useLocation();
+  let routingConnected = false;
+  let statusConnected = false;
+  try {
+    const ctx = useRoutingEventsContext();
+    routingConnected = ctx.routingConnected;
+    statusConnected = ctx.statusConnected;
+  } catch {}
 
   return (
     <nav className="bg-nord-1 border-b border-nord-3 px-6 py-3">
@@ -48,6 +56,16 @@ function Navigation() {
           <Server size={18} />
           Hosts & Instances
         </Link>
+        <div className="ml-auto flex items-center gap-4 text-xs">
+          <div className="flex items-center gap-2">
+            <span className={routingConnected ? 'text-nord-14' : 'text-nord-11'}>●</span>
+            <span className="text-nord-4">Routing WS</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={statusConnected ? 'text-nord-14' : 'text-nord-11'}>●</span>
+            <span className="text-nord-4">Status WS</span>
+          </div>
+        </div>
       </div>
     </nav>
   );

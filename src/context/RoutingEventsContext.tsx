@@ -42,6 +42,9 @@ interface RoutingEventsContextValue {
   removeRequest: (requestId: string) => void;
   events: RoutingEvent[];
   addRecentEvents: (items: RoutingEvent[]) => void;
+  routingConnected: boolean;
+  statusConnected: boolean;
+  hostStatuses: Map<string, { host_id: string; name: string; status: string; url: string; memory?: any; last_seen?: string | null }>;
 }
 
 const RoutingEventsContext = createContext<RoutingEventsContextValue | undefined>(undefined);
@@ -52,6 +55,12 @@ export function RoutingEventsProvider({ children }: { children: any }) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
   const pingIntervalRef = useRef<number | null>(null);
+  const statusWsRef = useRef<WebSocket | null>(null);
+  const statusReconnectRef = useRef<number | null>(null);
+  const statusPingRef = useRef<number | null>(null);
+  const [routingConnected, setRoutingConnected] = useState(false);
+  const [statusConnected, setStatusConnected] = useState(false);
+  const [hostStatuses, setHostStatuses] = useState<Map<string, { host_id: string; name: string; status: string; url: string; memory?: any; last_seen?: string | null }>>(new Map());
   const baseUrl = (import.meta as any).env.VITE_SOLAR_CONTROL_URL || 'http://localhost:8000';
   const EVENTS_MAX = 2000;
 
@@ -160,6 +169,7 @@ export function RoutingEventsProvider({ children }: { children: any }) {
       wsRef.current = new WebSocket(wsUrl);
 
       wsRef.current.onopen = () => {
+        setRoutingConnected(true);
         if (reconnectTimeoutRef.current) {
           clearTimeout(reconnectTimeoutRef.current);
           reconnectTimeoutRef.current = null;
@@ -184,6 +194,7 @@ export function RoutingEventsProvider({ children }: { children: any }) {
       };
 
       wsRef.current.onclose = () => {
+        setRoutingConnected(false);
         if (pingIntervalRef.current) {
           clearInterval(pingIntervalRef.current);
           pingIntervalRef.current = null;
@@ -197,6 +208,64 @@ export function RoutingEventsProvider({ children }: { children: any }) {
     };
 
     connect();
+    // Also connect to status websocket globally
+    const connectStatus = () => {
+      const wsProtocol = baseUrl.startsWith('https') ? 'wss' : 'ws';
+      const url = baseUrl.replace(/^https?:\/\//, '');
+      const wsUrl = `${wsProtocol}://${url}/ws/status`;
+      statusWsRef.current = new WebSocket(wsUrl);
+
+      statusWsRef.current.onopen = () => {
+        setStatusConnected(true);
+        if (statusReconnectRef.current) {
+          clearTimeout(statusReconnectRef.current);
+          statusReconnectRef.current = null;
+        }
+        if (statusPingRef.current) {
+          clearInterval(statusPingRef.current);
+          statusPingRef.current = null;
+        }
+        statusPingRef.current = window.setInterval(() => {
+          if (statusWsRef.current?.readyState === WebSocket.OPEN) {
+            statusWsRef.current.send('ping');
+          }
+        }, 25000);
+      };
+
+      statusWsRef.current.onmessage = (event) => {
+        if (typeof event.data === 'string' && event.data === 'pong') return;
+        try {
+          const message = JSON.parse(event.data);
+          if (message?.type === 'initial_status' && Array.isArray(message.data)) {
+            setHostStatuses(() => {
+              const m = new Map<string, any>();
+              (message.data as any[]).forEach((s) => m.set(s.host_id, s));
+              return m;
+            });
+          } else if (message?.type === 'host_status' && message.data && !Array.isArray(message.data)) {
+            setHostStatuses((prev) => {
+              const m = new Map(prev);
+              m.set(message.data.host_id, message.data);
+              return m;
+            });
+          }
+        } catch {}
+      };
+
+      statusWsRef.current.onclose = () => {
+        setStatusConnected(false);
+        if (statusPingRef.current) {
+          clearInterval(statusPingRef.current);
+          statusPingRef.current = null;
+        }
+        statusReconnectRef.current = window.setTimeout(() => connectStatus(), 5000);
+      };
+
+      statusWsRef.current.onerror = () => {
+        try { statusWsRef.current?.close(); } catch {}
+      };
+    };
+    connectStatus();
     return () => {
       if (pingIntervalRef.current) {
         clearInterval(pingIntervalRef.current);
@@ -210,10 +279,22 @@ export function RoutingEventsProvider({ children }: { children: any }) {
         try { wsRef.current.close(); } catch {}
         wsRef.current = null;
       }
+      if (statusPingRef.current) {
+        clearInterval(statusPingRef.current);
+        statusPingRef.current = null;
+      }
+      if (statusReconnectRef.current) {
+        clearTimeout(statusReconnectRef.current);
+        statusReconnectRef.current = null;
+      }
+      if (statusWsRef.current) {
+        try { statusWsRef.current.close(); } catch {}
+        statusWsRef.current = null;
+      }
     };
   }, [baseUrl, handleEvent]);
 
-  const value = useMemo<RoutingEventsContextValue>(() => ({ requests, removeRequest, events, addRecentEvents }), [requests, removeRequest, events, addRecentEvents]);
+  const value = useMemo<RoutingEventsContextValue>(() => ({ requests, removeRequest, events, addRecentEvents, routingConnected, statusConnected, hostStatuses }), [requests, removeRequest, events, addRecentEvents, routingConnected, statusConnected, hostStatuses]);
   return (
     <RoutingEventsContext.Provider value={value}>
       {children}

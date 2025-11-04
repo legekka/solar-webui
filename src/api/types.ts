@@ -106,3 +106,47 @@ export interface InstanceCreateRequest {
   config: InstanceConfig;
 }
 
+// Gateway monitoring
+export interface GatewayStats {
+  from: string;
+  to: string;
+  completed: number;
+  missed: number;
+  error: number;
+  rerouted_requests: number;
+}
+
+export interface GatewayRequestSummary {
+  request_id: string;
+  status: 'success' | 'error' | 'missed';
+  model?: string;
+  resolved_model?: string;
+  endpoint?: string;
+  client_ip?: string;
+  stream?: boolean;
+  attempts: number;
+  start_timestamp?: string;
+  end_timestamp: string;
+  duration_s?: number;
+  host_id?: string;
+  host_name?: string;
+  instance_id?: string;
+  instance_url?: string;
+  error_message?: string;
+}
+
+export interface GatewayRequestsResponse {
+  from: string;
+  to: string;
+  page: number;
+  limit: number;
+  total: number;
+  items: GatewayRequestSummary[];
+}
+
+export interface GatewayEventDTO {
+  type: 'request_error' | 'request_reroute';
+  data?: any;
+  timestamp?: string;
+}
+

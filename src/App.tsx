@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { Dashboard } from './components/Dashboard';
 import { RoutingGraph } from './components/RoutingGraph';
+import { GatewayDashboard } from './components/GatewayDashboard';
 import { Activity, Server } from 'lucide-react';
 import { RoutingEventsProvider } from './context/RoutingEventsContext';
 
@@ -24,6 +25,17 @@ function Navigation() {
         >
           <Activity size={18} />
           Routing
+        </Link>
+        <Link
+          to="/gateway"
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+            location.pathname === '/gateway'
+              ? 'bg-nord-10 text-nord-6 font-medium'
+              : 'text-nord-4 hover:bg-nord-2'
+          }`}
+        >
+          <Activity size={18} />
+          Gateway
         </Link>
         <Link
           to="/hosts"
@@ -50,6 +62,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Navigate to="/routing" replace />} />
             <Route path="/routing" element={<RoutingGraph />} />
+            <Route path="/gateway" element={<GatewayDashboard />} />
             <Route path="/hosts" element={<Dashboard />} />
           </Routes>
         </div>

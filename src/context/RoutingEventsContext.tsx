@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 export interface RoutingEvent {
-  type: 'request_start' | 'request_routed' | 'request_success' | 'request_error' | 'keepalive';
+  type: 'request_start' | 'request_routed' | 'request_success' | 'request_error' | 'request_reroute' | 'keepalive';
   data?: {
     request_id: string;
     model: string;
@@ -40,16 +40,20 @@ export interface RequestState {
 interface RoutingEventsContextValue {
   requests: Map<string, RequestState>;
   removeRequest: (requestId: string) => void;
+  events: RoutingEvent[];
+  addRecentEvents: (items: RoutingEvent[]) => void;
 }
 
 const RoutingEventsContext = createContext<RoutingEventsContextValue | undefined>(undefined);
 
 export function RoutingEventsProvider({ children }: { children: any }) {
   const [requests, setRequests] = useState<Map<string, RequestState>>(new Map());
+  const [events, setEvents] = useState<RoutingEvent[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
   const pingIntervalRef = useRef<number | null>(null);
   const baseUrl = (import.meta as any).env.VITE_SOLAR_CONTROL_URL || 'http://localhost:8000';
+  const EVENTS_MAX = 2000;
 
   const updateRequest = useCallback((requestId: string, updates: Partial<RequestState>) => {
     setRequests((prev) => {
@@ -85,6 +89,14 @@ export function RoutingEventsProvider({ children }: { children: any }) {
   const handleEvent = useCallback((event: RoutingEvent) => {
     if (event.type === 'keepalive' || !event.data) return;
     const { request_id, ...data } = event.data;
+    // Capture non-regular events into a ring buffer
+    if (event.type === 'request_error' || event.type === 'request_reroute') {
+      setEvents((prev) => {
+        const merged = [...prev, event];
+        if (merged.length > EVENTS_MAX) return merged.slice(merged.length - EVENTS_MAX);
+        return merged;
+      });
+    }
     switch (event.type) {
       case 'request_start':
         updateRequest(request_id, {
@@ -124,6 +136,21 @@ export function RoutingEventsProvider({ children }: { children: any }) {
         break;
     }
   }, [updateRequest, removeRequest]);
+
+  const addRecentEvents = useCallback((items: RoutingEvent[]) => {
+    if (!items || items.length === 0) return;
+    setEvents((prev) => {
+      // Merge, then limit; simple concat is fine since items are historical
+      const merged = [...prev, ...items];
+      // Sort by timestamp if present
+      merged.sort((a, b) => {
+        const at = (a.data as any)?.timestamp || (a as any).timestamp || '';
+        const bt = (b.data as any)?.timestamp || (b as any).timestamp || '';
+        return at.localeCompare(bt);
+      });
+      return merged.length > EVENTS_MAX ? merged.slice(merged.length - EVENTS_MAX) : merged;
+    });
+  }, []);
 
   useEffect(() => {
     const connect = () => {
@@ -186,7 +213,7 @@ export function RoutingEventsProvider({ children }: { children: any }) {
     };
   }, [baseUrl, handleEvent]);
 
-  const value = useMemo<RoutingEventsContextValue>(() => ({ requests, removeRequest }), [requests, removeRequest]);
+  const value = useMemo<RoutingEventsContextValue>(() => ({ requests, removeRequest, events, addRecentEvents }), [requests, removeRequest, events, addRecentEvents]);
   return (
     <RoutingEventsContext.Provider value={value}>
       {children}

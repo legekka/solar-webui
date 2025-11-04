@@ -5,6 +5,9 @@ import {
   Instance,
   ModelInfo,
   InstanceRuntimeState,
+  GatewayStats,
+  GatewayRequestsResponse,
+  GatewayEventDTO,
 } from './types';
 
 class SolarClient {
@@ -125,6 +128,35 @@ class SolarClient {
     const wsProtocol = controlBaseUrl.startsWith('https') ? 'wss' : 'ws';
     const base = controlBaseUrl.replace(/^https?:\/\//, '');
     return `${wsProtocol}://${base}/ws/instances/${hostId}/${instanceId}/state`;
+  }
+
+  // Gateway monitoring
+  async getGatewayStats(params: { from?: string; to?: string }): Promise<GatewayStats> {
+    const response = await this.client.get('/gateway/stats', { params });
+    return response.data as GatewayStats;
+  }
+
+  async listGatewayRequests(params: {
+    from?: string;
+    to?: string;
+    status?: 'all' | 'success' | 'error' | 'missed';
+    model?: string;
+    host_id?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<GatewayRequestsResponse> {
+    const response = await this.client.get('/gateway/requests', { params });
+    return response.data as GatewayRequestsResponse;
+  }
+
+  async getRecentGatewayEvents(params: {
+    from?: string;
+    to?: string;
+    types?: string; // comma separated
+    limit?: number;
+  }): Promise<{ from: string; to: string; types: string[]; items: GatewayEventDTO[] }> {
+    const response = await this.client.get('/gateway/events/recent', { params });
+    return response.data as { from: string; to: string; types: string[]; items: GatewayEventDTO[] };
   }
 
   // OpenAI Gateway

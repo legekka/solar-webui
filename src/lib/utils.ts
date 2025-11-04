@@ -123,7 +123,9 @@ export function formatTokenCount(count: number | undefined | null): string {
     return `${count < 0 ? '-' : ''}${thousands.toFixed(1)}K`;
   }
   
-  // Less than 1000, show as-is
-  return count.toString();
+  // Less than 1000, round to 1 decimal place for readability (especially for averages)
+  // Remove trailing zeros for whole numbers
+  const rounded = count.toFixed(1);
+  return rounded.replace(/\.0$/, '');
 }
 

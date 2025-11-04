@@ -15,14 +15,52 @@ function isoInput(dt: Date) {
   return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
 }
 
+type TimePreset = '1h' | '12h' | '1d' | '7d' | '1m' | '1y' | 'custom';
+
+function calculatePresetDates(preset: TimePreset): { from: string; to: string } {
+  const now = new Date();
+  const to = isoInput(now);
+  let fromDate: Date;
+  
+  switch (preset) {
+    case '1h':
+      fromDate = new Date(now.getTime() - 60 * 60 * 1000);
+      break;
+    case '12h':
+      fromDate = new Date(now.getTime() - 12 * 60 * 60 * 1000);
+      break;
+    case '1d':
+      fromDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      break;
+    case '7d':
+      fromDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      break;
+    case '1m':
+      fromDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      break;
+    case '1y':
+      fromDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+      break;
+    case 'custom':
+    default:
+      // Return current values (will be set by state)
+      const nowUtc = new Date();
+      const startOfToday = new Date(Date.UTC(nowUtc.getUTCFullYear(), nowUtc.getUTCMonth(), nowUtc.getUTCDate(), 0, 0, 0));
+      return { from: isoInput(startOfToday), to };
+  }
+  
+  return { from: isoInput(fromDate), to };
+}
+
 export function GatewayDashboard() {
   const { events, addRecentEvents, requests } = useRoutingEventsContext();
 
-  // Time range
-  const now = new Date();
-  const startOfToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0));
-  const [from, setFrom] = useState<string>(isoInput(new Date(startOfToday)));
-  const [to, setTo] = useState<string>(isoInput(new Date()));
+  // Time range - initialize with 1d preset
+  const initialPreset: TimePreset = '1d';
+  const initialDates = calculatePresetDates(initialPreset);
+  const [preset, setPreset] = useState<TimePreset>(initialPreset);
+  const [from, setFrom] = useState<string>(initialDates.from);
+  const [to, setTo] = useState<string>(initialDates.to);
 
   // Stats
   const [stats, setStats] = useState<GatewayStats | null>(null);
@@ -38,6 +76,15 @@ export function GatewayDashboard() {
 
   const fromIso = useMemo(() => new Date(from).toISOString(), [from]);
   const toIso = useMemo(() => new Date(to).toISOString(), [to]);
+
+  // Update dates when preset changes
+  useEffect(() => {
+    if (preset !== 'custom') {
+      const { from: newFrom, to: newTo } = calculatePresetDates(preset);
+      setFrom(newFrom);
+      setTo(newTo);
+    }
+  }, [preset]);
 
   const refreshStats = async () => {
     setLoadingStats(true);
@@ -85,22 +132,31 @@ export function GatewayDashboard() {
     if (refreshThrottleRef.current !== null) return;
     refreshThrottleRef.current = window.setTimeout(() => {
       refreshThrottleRef.current = null;
+      // Update to current time, and if preset is not custom, update from date accordingly
       setTo(isoInput(new Date()));
+      if (preset !== 'custom') {
+        const { from: newFrom } = calculatePresetDates(preset);
+        setFrom(newFrom);
+      }
       refreshRequests();
       refreshStats();
     }, 800);
-  }, [completedCount, live]);
+  }, [completedCount, live, preset]);
 
   // Periodic polling in live mode as a fallback (covers WS reconnect or idle periods)
   useEffect(() => {
     if (!live) return;
     const id = window.setInterval(() => {
       setTo(isoInput(new Date()));
+      if (preset !== 'custom') {
+        const { from: newFrom } = calculatePresetDates(preset);
+        setFrom(newFrom);
+      }
       refreshRequests();
       refreshStats();
     }, 2000);
     return () => window.clearInterval(id);
-  }, [live, fromIso, statusFilter, page, limit]);
+  }, [live, fromIso, statusFilter, page, limit, preset]);
 
   // Backfill recent events on mount
   useEffect(() => {
@@ -129,9 +185,44 @@ export function GatewayDashboard() {
           >
             {live ? 'Live' : 'Go Live'}
           </button>
-          <input type="datetime-local" value={from} onChange={(e) => setFrom(e.target.value)} className="bg-nord-1 text-nord-6 border border-nord-3 rounded px-2 py-1" />
-          <span className="text-nord-4">to</span>
-          <input type="datetime-local" value={to} onChange={(e) => setTo(e.target.value)} className="bg-nord-1 text-nord-6 border border-nord-3 rounded px-2 py-1" />
+          <div className="flex items-center gap-1">
+            {(['1h', '12h', '1d', '7d', '1m', '1y', 'custom'] as TimePreset[]).map((p) => (
+              <button
+                key={p}
+                onClick={() => setPreset(p)}
+                className={`px-3 py-1 text-sm rounded ${
+                  preset === p
+                    ? 'bg-nord-10 text-nord-6 font-medium'
+                    : 'bg-nord-2 text-nord-6 hover:bg-nord-3'
+                }`}
+              >
+                {p === 'custom' ? 'Custom' : p}
+              </button>
+            ))}
+          </div>
+          {preset === 'custom' && (
+            <>
+              <input
+                type="datetime-local"
+                value={from}
+                onChange={(e) => {
+                  setFrom(e.target.value);
+                  setPreset('custom');
+                }}
+                className="bg-nord-1 text-nord-6 border border-nord-3 rounded px-2 py-1"
+              />
+              <span className="text-nord-4">to</span>
+              <input
+                type="datetime-local"
+                value={to}
+                onChange={(e) => {
+                  setTo(e.target.value);
+                  setPreset('custom');
+                }}
+                className="bg-nord-1 text-nord-6 border border-nord-3 rounded px-2 py-1"
+              />
+            </>
+          )}
           <button onClick={refreshStats} className="px-3 py-2 bg-nord-3 text-nord-6 rounded hover:bg-nord-2">
             <RefreshCw size={16} className={loadingStats ? 'animate-spin' : ''} />
           </button>

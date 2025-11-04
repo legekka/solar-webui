@@ -33,6 +33,7 @@ export function GatewayDashboard() {
   const [limit, setLimit] = useState(50);
   const [reqResp, setReqResp] = useState<GatewayRequestsResponse | null>(null);
   const [loadingReqs, setLoadingReqs] = useState(false);
+  const [live, setLive] = useState(true);
 
   const fromIso = useMemo(() => new Date(from).toISOString(), [from]);
   const toIso = useMemo(() => new Date(to).toISOString(), [to]);
@@ -78,16 +79,33 @@ export function GatewayDashboard() {
   }, [requests]);
 
   useEffect(() => {
-    // Only auto-refresh if the time window includes now (i.e., user is viewing recent data)
-    const windowEndsNearNow = Math.abs(new Date(toIso).getTime() - Date.now()) < 2 * 60 * 1000; // 2 min
-    if (!windowEndsNearNow) return;
+    // Auto-refresh on request completion regardless of window, while in live mode
+    if (!live) return;
     if (refreshThrottleRef.current !== null) return;
     refreshThrottleRef.current = window.setTimeout(() => {
       refreshThrottleRef.current = null;
+      setTo(isoInput(new Date()));
       refreshRequests();
       refreshStats();
-    }, 1000);
-  }, [completedCount]);
+    }, 800);
+  }, [completedCount, live]);
+
+  // Periodic polling in live mode as a fallback (covers WS reconnect or idle periods)
+  useEffect(() => {
+    if (!live) return;
+    const id = window.setInterval(() => {
+      setTo(isoInput(new Date()));
+      refreshRequests();
+      refreshStats();
+    }, 2000);
+    return () => window.clearInterval(id);
+  }, [live, fromIso, statusFilter, page, limit]);
+
+  // Backfill recent events on mount
+  useEffect(() => {
+    handleLoadRecentEvents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleLoadRecentEvents = async () => {
     const res = await solarClient.getRecentGatewayEvents({ from: fromIso, to: toIso, limit: 1000, types: 'request_error,request_reroute' });
@@ -103,6 +121,13 @@ export function GatewayDashboard() {
           <h1 className="text-2xl font-semibold text-nord-6">Gateway Monitoring</h1>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setLive((v) => !v)}
+            className={`px-3 py-2 rounded ${live ? 'bg-nord-10 text-nord-6' : 'bg-nord-3 text-nord-6 hover:bg-nord-2'}`}
+            title={live ? 'Live updating' : 'Enable live updates'}
+          >
+            {live ? 'Live' : 'Go Live'}
+          </button>
           <input type="datetime-local" value={from} onChange={(e) => setFrom(e.target.value)} className="bg-nord-1 text-nord-6 border border-nord-3 rounded px-2 py-1" />
           <span className="text-nord-4">to</span>
           <input type="datetime-local" value={to} onChange={(e) => setTo(e.target.value)} className="bg-nord-1 text-nord-6 border border-nord-3 rounded px-2 py-1" />

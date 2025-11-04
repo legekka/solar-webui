@@ -69,7 +69,7 @@ export function GatewayDashboard() {
   // Requests
   const [statusFilter, setStatusFilter] = useState<'all' | 'success' | 'error' | 'missed'>('all');
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(50);
+  const [limit, setLimit] = useState(15);
   const [reqResp, setReqResp] = useState<GatewayRequestsResponse | null>(null);
   const [loadingReqs, setLoadingReqs] = useState(false);
   const [live, setLive] = useState(true);
@@ -394,6 +394,7 @@ export function GatewayDashboard() {
             <button disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} className="px-3 py-1 bg-nord-2 text-nord-6 rounded disabled:opacity-50">Prev</button>
             <button disabled={(reqResp?.items?.length || 0) < limit} onClick={() => setPage((p) => p + 1)} className="px-3 py-1 bg-nord-2 text-nord-6 rounded disabled:opacity-50">Next</button>
             <select value={limit} onChange={(e) => { setPage(1); setLimit(parseInt(e.target.value, 10)); }} className="bg-nord-2 text-nord-6 border border-nord-3 rounded px-2 py-1">
+              <option value={15}>15</option>
               <option value={25}>25</option>
               <option value={50}>50</option>
               <option value={100}>100</option>

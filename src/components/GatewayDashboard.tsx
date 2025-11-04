@@ -128,27 +128,47 @@ export function GatewayDashboard() {
 
   useEffect(() => {
     // Auto-refresh on request completion regardless of window, while in live mode
-    if (!live) return;
-    if (refreshThrottleRef.current !== null) return;
-    refreshThrottleRef.current = window.setTimeout(() => {
+    if (!live) {
+      if (refreshThrottleRef.current !== null) {
+        clearTimeout(refreshThrottleRef.current);
+        refreshThrottleRef.current = null;
+      }
+      return;
+    }
+
+    if (refreshThrottleRef.current !== null) {
+      clearTimeout(refreshThrottleRef.current);
       refreshThrottleRef.current = null;
-      // Update to current time, and if preset is not custom, update from date accordingly
-      setTo(isoInput(new Date()));
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      refreshThrottleRef.current = null;
       if (preset !== 'custom') {
+        const nowIso = isoInput(new Date());
+        setTo(nowIso);
         const { from: newFrom } = calculatePresetDates(preset);
         setFrom(newFrom);
       }
       refreshRequests();
       refreshStats();
     }, 800);
+    refreshThrottleRef.current = timeoutId;
+
+    return () => {
+      clearTimeout(timeoutId);
+      if (refreshThrottleRef.current === timeoutId) {
+        refreshThrottleRef.current = null;
+      }
+    };
   }, [completedCount, live, preset]);
 
   // Periodic polling in live mode as a fallback (covers WS reconnect or idle periods)
   useEffect(() => {
     if (!live) return;
     const id = window.setInterval(() => {
-      setTo(isoInput(new Date()));
       if (preset !== 'custom') {
+        const nowIso = isoInput(new Date());
+        setTo(nowIso);
         const { from: newFrom } = calculatePresetDates(preset);
         setFrom(newFrom);
       }

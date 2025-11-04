@@ -95,3 +95,35 @@ export function formatMemoryUsage(used: number, total: number, percent: number):
   return `${used.toFixed(1)} / ${total.toFixed(1)} GB (${percent.toFixed(1)}%)`;
 }
 
+export function formatTokenCount(count: number | undefined | null): string {
+  if (count === undefined || count === null || isNaN(count)) {
+    return '—';
+  }
+  if (count === 0) {
+    return '0';
+  }
+  
+  const absCount = Math.abs(count);
+  
+  // Billions
+  if (absCount >= 1_000_000_000) {
+    const billions = absCount / 1_000_000_000;
+    return `${count < 0 ? '-' : ''}${billions.toFixed(2)}B`;
+  }
+  
+  // Millions
+  if (absCount >= 1_000_000) {
+    const millions = absCount / 1_000_000;
+    return `${count < 0 ? '-' : ''}${millions.toFixed(2)}M`;
+  }
+  
+  // Thousands
+  if (absCount >= 1_000) {
+    const thousands = absCount / 1_000;
+    return `${count < 0 ? '-' : ''}${thousands.toFixed(1)}K`;
+  }
+  
+  // Less than 1000, show as-is
+  return count.toString();
+}
+

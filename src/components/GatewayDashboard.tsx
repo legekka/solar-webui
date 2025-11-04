@@ -3,6 +3,7 @@ import { Activity, AlertTriangle, CheckCircle2, RefreshCw, RotateCcw, TriangleAl
 import solarClient from '@/api/client';
 import { GatewayRequestSummary, GatewayRequestsResponse, GatewayStats } from '@/api/types';
 import { useRoutingEventsContext } from '@/context/RoutingEventsContext';
+import { formatTokenCount } from '@/lib/utils';
 
 function isoInput(dt: Date) {
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -156,14 +157,14 @@ export function GatewayDashboard() {
           <div className="text-nord-13 text-2xl font-semibold">{stats?.rerouted_requests ?? '—'}</div>
         </div>
         <div className="bg-nord-1 border border-nord-3 rounded p-4">
-          <div className="text-nord-4 text-sm">Tokens In (Prompt)</div>
-          <div className="text-nord-6 text-lg">{stats ? stats.token_in_total : '—'}</div>
-          <div className="text-nord-4 text-xs">avg {stats ? stats.avg_tokens_in.toFixed(1) : '—'}</div>
+          <div className="text-nord-4 text-sm">Input tokens</div>
+          <div className="text-nord-6 text-lg">{formatTokenCount(stats?.token_in_total)}</div>
+          <div className="text-nord-4 text-xs">avg {formatTokenCount(stats?.avg_tokens_in)}</div>
         </div>
         <div className="bg-nord-1 border border-nord-3 rounded p-4">
-          <div className="text-nord-4 text-sm">Tokens Out (Completion)</div>
-          <div className="text-nord-6 text-lg">{stats ? stats.token_out_total : '—'}</div>
-          <div className="text-nord-4 text-xs">avg {stats ? stats.avg_tokens_out.toFixed(1) : '—'}</div>
+          <div className="text-nord-4 text-sm">Output tokens</div>
+          <div className="text-nord-6 text-lg">{formatTokenCount(stats?.token_out_total)}</div>
+          <div className="text-nord-4 text-xs">avg {formatTokenCount(stats?.avg_tokens_out)}</div>
         </div>
       </div>
 
@@ -234,9 +235,9 @@ export function GatewayDashboard() {
                 <th className="text-left px-3 py-2">Model</th>
                 <th className="text-left px-3 py-2">Status</th>
                 <th className="text-left px-3 py-2">Host</th>
-                <th className="text-left px-3 py-2">Prompt tok</th>
-                <th className="text-left px-3 py-2">Completion tok</th>
-                <th className="text-left px-3 py-2">Total tok</th>
+                <th className="text-left px-3 py-2">Input tokens</th>
+                <th className="text-left px-3 py-2">Output tokens</th>
+                <th className="text-left px-3 py-2">Total tokens</th>
                 <th className="text-left px-3 py-2">Duration</th>
                 <th className="text-left px-3 py-2">Attempts</th>
                 <th className="text-left px-3 py-2">Endpoint</th>
@@ -258,9 +259,9 @@ export function GatewayDashboard() {
                       )}
                     </td>
                     <td className="px-3 py-2">{r.host_name || r.host_id || '—'}</td>
-                    <td className="px-3 py-2">{typeof r.prompt_tokens === 'number' ? r.prompt_tokens : '—'}</td>
-                    <td className="px-3 py-2">{typeof r.completion_tokens === 'number' ? r.completion_tokens : '—'}</td>
-                    <td className="px-3 py-2">{typeof r.total_tokens === 'number' ? r.total_tokens : (typeof r.prompt_tokens === 'number' && typeof r.completion_tokens === 'number' ? r.prompt_tokens + r.completion_tokens : '—')}</td>
+                    <td className="px-3 py-2">{formatTokenCount(r.prompt_tokens)}</td>
+                    <td className="px-3 py-2">{formatTokenCount(r.completion_tokens)}</td>
+                    <td className="px-3 py-2">{formatTokenCount(r.total_tokens ?? (typeof r.prompt_tokens === 'number' && typeof r.completion_tokens === 'number' ? r.prompt_tokens + r.completion_tokens : undefined))}</td>
                     <td className="px-3 py-2">{r.duration_s?.toFixed(2)}s</td>
                     <td className="px-3 py-2">{r.attempts}</td>
                     <td className="px-3 py-2">{r.endpoint}</td>
@@ -268,7 +269,7 @@ export function GatewayDashboard() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={7} className="px-3 py-6 text-center text-nord-4">No data</td>
+                  <td colSpan={10} className="px-3 py-6 text-center text-nord-4">No data</td>
                 </tr>
               )}
             </tbody>
@@ -300,8 +301,8 @@ export function GatewayDashboard() {
                 <tr>
                   <th className="text-left px-3 py-2">Model</th>
                   <th className="text-left px-3 py-2">Completed</th>
-                  <th className="text-left px-3 py-2">Tokens In</th>
-                  <th className="text-left px-3 py-2">Tokens Out</th>
+                  <th className="text-left px-3 py-2">Input tokens</th>
+                  <th className="text-left px-3 py-2">Output tokens</th>
                   <th className="text-left px-3 py-2">Avg Duration</th>
                 </tr>
               </thead>
@@ -310,8 +311,8 @@ export function GatewayDashboard() {
                   <tr key={m.model} className="border-t border-nord-3">
                     <td className="px-3 py-2">{m.model}</td>
                     <td className="px-3 py-2">{m.completed}</td>
-                    <td className="px-3 py-2">{m.token_in}</td>
-                    <td className="px-3 py-2">{m.token_out}</td>
+                    <td className="px-3 py-2">{formatTokenCount(m.token_in)}</td>
+                    <td className="px-3 py-2">{formatTokenCount(m.token_out)}</td>
                     <td className="px-3 py-2">{m.avg_duration_s.toFixed(2)}s</td>
                   </tr>
                 )) : (
@@ -329,8 +330,8 @@ export function GatewayDashboard() {
                 <tr>
                   <th className="text-left px-3 py-2">Host</th>
                   <th className="text-left px-3 py-2">Completed</th>
-                  <th className="text-left px-3 py-2">Tokens In</th>
-                  <th className="text-left px-3 py-2">Tokens Out</th>
+                  <th className="text-left px-3 py-2">Input tokens</th>
+                  <th className="text-left px-3 py-2">Output tokens</th>
                   <th className="text-left px-3 py-2">Avg Duration</th>
                 </tr>
               </thead>
@@ -339,8 +340,8 @@ export function GatewayDashboard() {
                   <tr key={h.host_id} className="border-t border-nord-3">
                     <td className="px-3 py-2">{h.host_name || h.host_id}</td>
                     <td className="px-3 py-2">{h.completed}</td>
-                    <td className="px-3 py-2">{h.token_in}</td>
-                    <td className="px-3 py-2">{h.token_out}</td>
+                    <td className="px-3 py-2">{formatTokenCount(h.token_in)}</td>
+                    <td className="px-3 py-2">{formatTokenCount(h.token_out)}</td>
                     <td className="px-3 py-2">{h.avg_duration_s.toFixed(2)}s</td>
                   </tr>
                 )) : (

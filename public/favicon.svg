@@ -6,10 +6,8 @@
     </linearGradient>
   </defs>
   <rect width="64" height="64" rx="12" fill="url(#g)"/>
-  <g transform="translate(8,8)">
-    <circle cx="24" cy="24" r="18" fill="#3B4252"/>
-    <path d="M26 10l-8 14h7l-3 14 12-18h-7l-1-10z" fill="#EBCB8B"/>
-  </g>
+  <!-- Large lightning bolt nearly filling the tile -->
+  <path d="M34 6 L16 36 H30 L22 58 L48 24 H34 Z" fill="#EBCB8B"/>
   <circle cx="52" cy="12" r="5" fill="#A3BE8C"/>
   <circle cx="12" cy="52" r="4" fill="#88C0D0"/>
 </svg>

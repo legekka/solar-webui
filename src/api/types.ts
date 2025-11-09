@@ -25,6 +25,7 @@ export interface InstanceConfig {
   host: string;
   port?: number;
   api_key: string;
+  special?: boolean;
 }
 
 export interface Instance {

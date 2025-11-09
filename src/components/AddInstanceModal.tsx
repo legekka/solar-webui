@@ -24,6 +24,7 @@ export function AddInstanceModal({ hostId, hostName, onClose, onCreate }: AddIns
     chat_template_file: '',
     host: '0.0.0.0',
     api_key: 'aiops',
+    special: false,
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,10 +47,17 @@ export function AddInstanceModal({ hostId, hostName, onClose, onCreate }: AddIns
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type } = e.target;
+    const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: type === 'number' ? parseFloat(value) : value,
+      [name]:
+        type === 'number'
+          ? value === ''
+            ? undefined
+            : parseFloat(value)
+          : type === 'checkbox'
+            ? checked
+            : value,
     }));
   };
 
@@ -115,6 +123,28 @@ export function AddInstanceModal({ hostId, hostName, onClose, onCreate }: AddIns
                 placeholder="/path/to/template.jinja"
                 className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
               />
+            </div>
+
+            {/* Special Flag */}
+            <div className="md:col-span-2 flex items-start gap-3">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="special"
+                  name="special"
+                  checked={!!formData.special}
+                  onChange={handleChange}
+                  className="h-4 w-4 rounded border-nord-3 bg-nord-1 text-nord-10 focus:ring-nord-10"
+                />
+              </div>
+              <div>
+                <label htmlFor="special" className="block text-sm font-medium text-nord-4 mb-1">
+                  Enable --special flag
+                </label>
+                <p className="text-xs text-nord-4">
+                  When enabled, llama-server will be started with the <code>--special</code> flag for this instance.
+                </p>
+              </div>
             </div>
 
             {/* Threads */}

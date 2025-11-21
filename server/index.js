@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 import http from 'http';
+import https from 'https';
 import { fileURLToPath } from 'url';
 
 dotenv.config();
@@ -27,25 +28,49 @@ const DIST_DIR = path.resolve(__dirname, '../dist');
 
 const app = express();
 app.disable('x-powered-by');
+app.set('etag', false); // Disable ETag generation for proxied requests
+
+// Create HTTP/HTTPS agents with keep-alive for connection reuse
+// This significantly reduces latency by reusing TCP connections
+const httpAgent = new http.Agent({
+  keepAlive: true,
+  keepAliveMsecs: 30000,
+  maxSockets: 50,
+  maxFreeSockets: 10,
+  timeout: 30000
+});
+
+const httpsAgent = new https.Agent({
+  keepAlive: true,
+  keepAliveMsecs: 30000,
+  maxSockets: 50,
+  maxFreeSockets: 10,
+  timeout: 30000
+});
 
 const controlProxy = createProxyMiddleware({
   target: CONTROL_URL,
   changeOrigin: true,
   ws: true,
+  // Use keep-alive agents for connection reuse
+  agent: CONTROL_URL.startsWith('https') ? httpsAgent : httpAgent,
   logLevel: LOG_LEVEL,
   pathRewrite: (path) => path.replace(/^\/api\/control/, ''),
   preserveHeaderKeyCase: true,
+  // Performance optimizations
+  followRedirects: false,
+  xfwd: true,
+  proxyTimeout: 30000,
+  timeout: 30000,
   headers: CONTROL_API_KEY
     ? {
         'X-API-Key': CONTROL_API_KEY,
         Authorization: `Bearer ${CONTROL_API_KEY}`,
       }
     : undefined,
-});
-
-app.use(
-  '/api/control',
-  (req, _res, next) => {
+  onProxyReq: (proxyReq, req, res) => {
+    const startTime = Date.now();
+    req._proxyStartTime = startTime;
     if (DEBUG_PROXY) {
       console.log('[proxy] incoming request', {
         method: req.method,
@@ -53,10 +78,29 @@ app.use(
         hasApiKey: !!req.headers['x-api-key'],
       });
     }
-    next();
   },
-  controlProxy
-);
+  onProxyRes: (proxyRes, req, res) => {
+    const duration = Date.now() - (req._proxyStartTime || 0);
+    if (DEBUG_PROXY) {
+      console.log('[proxy] response', {
+        method: req.method,
+        url: req.originalUrl,
+        status: proxyRes.statusCode,
+        duration: `${duration}ms`
+      });
+    }
+  },
+  onError: (err, req, res) => {
+    const duration = Date.now() - (req._proxyStartTime || 0);
+    console.error(`[proxy] error after ${duration}ms:`, {
+      method: req.method,
+      url: req.originalUrl,
+      error: err.message
+    });
+  }
+});
+
+app.use('/api/control', controlProxy);
 
 app.get('/api/health', (_req, res) => {
   res.json({
@@ -75,6 +119,7 @@ if (fs.existsSync(DIST_DIR)) {
     }),
   );
 
+  // Handle SPA routing - using regex to avoid path-to-regexp wildcard issues
   app.use((req, res, next) => {
     if (req.method !== 'GET') {
       return next();
@@ -88,6 +133,8 @@ if (fs.existsSync(DIST_DIR)) {
 }
 
 const server = http.createServer(app);
+
+// Explicitly handle upgrade events for WebSockets
 server.on('upgrade', (req, socket, head) => {
   if (DEBUG_PROXY) {
     console.log('[proxy] upgrade request', {
@@ -98,7 +145,13 @@ server.on('upgrade', (req, socket, head) => {
       },
     });
   }
-  controlProxy.upgrade(req, socket, head);
+  
+  // Check if the proxy middleware has an upgrade function
+  if (typeof controlProxy.upgrade === 'function') {
+    controlProxy.upgrade(req, socket, head);
+  } else {
+    console.warn('[proxy] controlProxy.upgrade is not a function');
+  }
 });
 
 server.listen(PORT, () => {
@@ -108,5 +161,3 @@ server.listen(PORT, () => {
     console.warn('[solar-webui] SOLAR_CONTROL_API_KEY is not set. API requests may fail with 401.');
   }
 });
-
-

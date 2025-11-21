@@ -29,9 +29,12 @@ RUN npm ci --omit=dev
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/server ./server
 
-# Expose port for the middleware
-EXPOSE 8080
+# Set port from build arg
+ARG PORT=8080
+ENV PORT=${PORT}
+
+# Expose port
+EXPOSE ${PORT}
 
 # Start the middleware server
 CMD ["node", "server/index.js"]
-

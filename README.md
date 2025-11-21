@@ -33,7 +33,7 @@ npm install
 
 ## Configuration
 
-The webui now ships with a built-in middleware proxy. Configure it using environment variables (either via a `.env` file or by exporting them in your shell):
+The webui now ships with a built-in middleware proxy with **HTTP keep-alive optimizations** for low-latency performance. Configure it using environment variables (either via a `.env` file or by exporting them in your shell):
 
 ```bash
 # URL of your solar-control deployment
@@ -44,9 +44,21 @@ SOLAR_CONTROL_API_KEY=your-solar-control-api-key
 
 # Optional: port for the middleware server (defaults to 8080)
 # PORT=8080
+
+# Optional: enable debug logging for proxy requests
+# SOLAR_WEBUI_DEBUG=true
 ```
 
 These values are consumed both by the Vite development proxy and the production middleware server. They are never exposed to the browser.
+
+### Performance Optimizations
+
+The middleware server includes several performance optimizations:
+- **HTTP Keep-Alive** - Reuses TCP connections to reduce latency (5-20ms vs 50-100ms)
+- **Connection Pooling** - Maintains up to 50 concurrent connections with 10 idle connections ready
+- **WebSocket Upgrade Handling** - Explicit upgrade event handling ensures no dropped connections
+- **Compression** - Gzip compression for static assets
+- **ETag Disabled** - Reduces overhead for proxied requests
 
 ## Development
 

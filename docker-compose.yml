@@ -3,15 +3,15 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        VITE_SOLAR_CONTROL_URL: ${VITE_SOLAR_CONTROL_URL:-http://host.docker.internal:8015}
-        VITE_SOLAR_CONTROL_API_KEY: ${VITE_SOLAR_CONTROL_API_KEY}
     container_name: solar-webui
     ports:
-      - "${PORT:-5173}:5173"
+      - "${PORT:-8080}:8080"
     restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
       - NODE_ENV=production
+      - PORT=8080
+      - SOLAR_CONTROL_URL=${SOLAR_CONTROL_URL:-http://host.docker.internal:8015}
+      - SOLAR_CONTROL_API_KEY=${SOLAR_CONTROL_API_KEY}
 

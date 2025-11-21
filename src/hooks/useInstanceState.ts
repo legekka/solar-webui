@@ -8,11 +8,9 @@ export function useInstanceState(hostId: string, instanceId: string) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRef = useRef<number | null>(null);
 
-  const baseUrl = (import.meta as any).env.VITE_SOLAR_CONTROL_URL || 'http://localhost:8000';
-
   const connect = useCallback(() => {
     if (!hostId || !instanceId) return;
-    const wsUrl = solarClient.getInstanceStateWebSocketUrl(baseUrl, hostId, instanceId);
+    const wsUrl = solarClient.getInstanceStateWebSocketUrl(hostId, instanceId);
 
     try {
       const ws = new WebSocket(wsUrl);
@@ -50,7 +48,7 @@ export function useInstanceState(hostId: string, instanceId: string) {
     } catch {
       // Ignore errors creating WebSocket
     }
-  }, [baseUrl, hostId, instanceId]);
+  }, [hostId, instanceId]);
 
   useEffect(() => {
     // Initial REST snapshot

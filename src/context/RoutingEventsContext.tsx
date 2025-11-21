@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import solarClient from '@/api/client';
 
 export interface RoutingEvent {
   type: 'request_start' | 'request_routed' | 'request_success' | 'request_error' | 'request_reroute' | 'keepalive';
@@ -61,7 +62,6 @@ export function RoutingEventsProvider({ children }: { children: any }) {
   const [routingConnected, setRoutingConnected] = useState(false);
   const [statusConnected, setStatusConnected] = useState(false);
   const [hostStatuses, setHostStatuses] = useState<Map<string, { host_id: string; name: string; status: string; url: string; memory?: any; last_seen?: string | null }>>(new Map());
-  const baseUrl = (import.meta as any).env.VITE_SOLAR_CONTROL_URL || 'http://localhost:8000';
   const EVENTS_MAX = 2000;
 
   const updateRequest = useCallback((requestId: string, updates: Partial<RequestState>) => {
@@ -163,9 +163,7 @@ export function RoutingEventsProvider({ children }: { children: any }) {
 
   useEffect(() => {
     const connect = () => {
-      const wsProtocol = baseUrl.startsWith('https') ? 'wss' : 'ws';
-      const url = baseUrl.replace(/^https?:\/\//, '');
-      const wsUrl = `${wsProtocol}://${url}/ws/routing`;
+      const wsUrl = solarClient.getControlWebSocketUrl('/ws/routing');
       wsRef.current = new WebSocket(wsUrl);
 
       wsRef.current.onopen = () => {
@@ -210,9 +208,7 @@ export function RoutingEventsProvider({ children }: { children: any }) {
     connect();
     // Also connect to status websocket globally
     const connectStatus = () => {
-      const wsProtocol = baseUrl.startsWith('https') ? 'wss' : 'ws';
-      const url = baseUrl.replace(/^https?:\/\//, '');
-      const wsUrl = `${wsProtocol}://${url}/ws/status`;
+      const wsUrl = solarClient.getControlWebSocketUrl('/ws/status');
       statusWsRef.current = new WebSocket(wsUrl);
 
       statusWsRef.current.onopen = () => {
@@ -292,7 +288,7 @@ export function RoutingEventsProvider({ children }: { children: any }) {
         statusWsRef.current = null;
       }
     };
-  }, [baseUrl, handleEvent]);
+  }, [handleEvent]);
 
   const value = useMemo<RoutingEventsContextValue>(() => ({ requests, removeRequest, events, addRecentEvents, routingConnected, statusConnected, hostStatuses }), [requests, removeRequest, events, addRecentEvents, routingConnected, statusConnected, hostStatuses]);
   return (

@@ -33,25 +33,20 @@ npm install
 
 ## Configuration
 
-Copy `.env.example` to `.env` and configure your **solar-control** connection:
+The webui now ships with a built-in middleware proxy. Configure it using environment variables (either via a `.env` file or by exporting them in your shell):
 
 ```bash
-cp .env.example .env
-# Then edit .env with your actual values
+# URL of your solar-control deployment
+SOLAR_CONTROL_URL=http://localhost:8000
+
+# API key required by solar-control
+SOLAR_CONTROL_API_KEY=your-solar-control-api-key
+
+# Optional: port for the middleware server (defaults to 8080)
+# PORT=8080
 ```
 
-Example `.env` configuration:
-
-```bash
-# Solar Control API Configuration
-VITE_SOLAR_CONTROL_URL=http://localhost:8015
-VITE_SOLAR_CONTROL_API_KEY=your-solar-control-api-key
-```
-
-**Important Notes:**
-- The `VITE_` prefix is **required** by Vite to expose these variables to the browser
-- Point these to your **solar-control** instance, NOT individual solar-host servers
-- `solar-control` acts as the gateway to all your solar-host instances
+These values are consumed both by the Vite development proxy and the production middleware server. They are never exposed to the browser.
 
 ## Development
 
@@ -60,7 +55,7 @@ VITE_SOLAR_CONTROL_API_KEY=your-solar-control-api-key
 npm run dev
 ```
 
-The application will be available at `http://localhost:5173`
+The application will be available at `http://localhost:5173`. The dev server proxies `/api/control/*` and related WebSocket routes to `SOLAR_CONTROL_URL`, injecting the API key from your environment variables.
 
 ## Production Deployment
 
@@ -69,9 +64,10 @@ The application will be available at `http://localhost:5173`
 **Quick Start:**
 
 ```bash
-# Create .env file
-cp .env.example .env
-# Edit .env with your production values
+# Export the required variables (or place them in docker-compose.env)
+export SOLAR_CONTROL_URL=http://host.docker.internal:8015
+export SOLAR_CONTROL_API_KEY=your-solar-control-api-key
+export PORT=8080  # optional
 
 # Build and start
 docker-compose up -d
@@ -83,86 +79,20 @@ docker-compose logs -f
 docker-compose down
 ```
 
-**Docker Environment Variables:**
-
-Create a `.env` file with:
-
-```bash
-# Solar Control URL - use host.docker.internal if solar-control is on the host
-VITE_SOLAR_CONTROL_URL=http://host.docker.internal:8015
-
-# Solar Control API Key
-VITE_SOLAR_CONTROL_API_KEY=your-solar-control-api-key
-
-# Optional: Change the port (default: 5173)
-PORT=5173
-```
-
 **Important Docker Notes:**
 
-- The webui will be accessible on `http://localhost:5173` (or your custom PORT)
+- The middleware listens on `http://localhost:PORT` (default `8080`)
 - Uses `host.docker.internal` to access solar-control running on the host machine
-- Environment variables are baked into the build at container startup
-- Rebuild the image if you change API endpoints: `docker-compose up -d --build`
+- Environment variables are read at container runtime—no rebuild is required when they change
 
 ### Option 2: Build for Production (Native)
 
 ```bash
 npm run build
+SOLAR_CONTROL_URL=http://localhost:8000 SOLAR_CONTROL_API_KEY=your-key npm start
 ```
 
-This creates optimized static files in the `dist/` directory.
-
-### Option 3: Serve in Production (Native)
-
-**Using the built-in server (recommended for quick deployment)**
-
-```bash
-npm run serve
-```
-
-This serves the production build on `http://0.0.0.0:5173`
-
-**Using a dedicated static file server:**
-
-Install `serve` globally:
-```bash
-npm install -g serve
-serve -s dist -p 5173
-```
-
-**Using nginx:**
-
-Point nginx to the `dist/` directory:
-
-```nginx
-server {
-    listen 80;
-    server_name your-domain.com;
-    root /path/to/solar-webui/dist;
-    index index.html;
-
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-}
-```
-
-### Option 4: Deploy to Cloud Platforms
-
-The `dist/` folder can be deployed to:
-- **Vercel**: `vercel --prod`
-- **Netlify**: `netlify deploy --prod`
-- **GitHub Pages**
-- **AWS S3 + CloudFront**
-- Any static hosting service
-
-### Important Notes for All Deployment Methods
-
-- ⚠️ Environment variables are embedded at **build time** (Vite requirement)
-- Make sure your `.env` file has production URLs before building
-- For Docker: Rebuild the image if you change API endpoints (`docker-compose up -d --build`)
-- For native: Re-run `npm run build` if you change `.env` values
+This builds the React assets and launches the Node middleware (`npm start` is an alias for `npm run serve`). The middleware serves both static files and all API/WebSocket requests, so you do **not** need an additional reverse proxy unless you want TLS or custom routing. Changes to environment variables take effect on the next process restart.
 
 ## Project Structure
 
@@ -194,7 +124,7 @@ src/
 
 ## Usage
 
-1. **Configure** your solar-control API endpoint and key in `.env`
+1. **Configure** `SOLAR_CONTROL_URL` and `SOLAR_CONTROL_API_KEY` in your environment
 2. **Navigate** to the Routing page (default view) to monitor request flow
 3. **Add Hosts** through the "Hosts & Instances" page
 4. **Manage Instances** - Create, start, stop, edit, or delete llama-server instances

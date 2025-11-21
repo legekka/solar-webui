@@ -8,8 +8,6 @@ export function useInstancesState(instances: Array<{ hostId: string; instanceId:
   const [stateMap, setStateMap] = useState<Map<InstanceKey, InstanceRuntimeState>>(new Map());
   const socketsRef = useRef<Map<InstanceKey, WebSocket>>(new Map());
   const reconnectTimersRef = useRef<Map<InstanceKey, number>>(new Map());
-  const baseUrl = (import.meta as any).env.VITE_SOLAR_CONTROL_URL || 'http://localhost:8000';
-
   useEffect(() => {
     const desiredKeys = new Set<InstanceKey>();
 
@@ -29,7 +27,7 @@ export function useInstancesState(instances: Array<{ hostId: string; instanceId:
         }
       })();
 
-      const url = solarClient.getInstanceStateWebSocketUrl(baseUrl, hostId, instanceId);
+      const url = solarClient.getInstanceStateWebSocketUrl(hostId, instanceId);
       const ws = new WebSocket(url);
       socketsRef.current.set(key, ws);
 
@@ -75,7 +73,7 @@ export function useInstancesState(instances: Array<{ hostId: string; instanceId:
       reconnectTimersRef.current.forEach((t) => clearTimeout(t));
       reconnectTimersRef.current.clear();
     };
-  }, [JSON.stringify(instances), baseUrl]);
+  }, [JSON.stringify(instances)]);
 
   return stateMap;
 }

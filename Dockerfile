@@ -12,31 +12,26 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Build arguments for environment variables
-ARG VITE_SOLAR_CONTROL_URL=http://localhost:8015
-ARG VITE_SOLAR_CONTROL_API_KEY
-
-# Create .env file from build args
-RUN echo "VITE_SOLAR_CONTROL_URL=${VITE_SOLAR_CONTROL_URL}" > .env && \
-    echo "VITE_SOLAR_CONTROL_API_KEY=${VITE_SOLAR_CONTROL_API_KEY}" >> .env
-
 # Build the application
 RUN npm run build
 
-# Stage 2: Serve with a lightweight web server
+# Stage 2: Run the middleware server
 FROM node:20-alpine
 
 WORKDIR /app
+ENV NODE_ENV=production
 
-# Install serve globally
-RUN npm install -g serve
+# Copy package files and install production dependencies
+COPY package*.json ./
+RUN npm ci --omit=dev
 
-# Copy built files from builder
+# Copy built assets and server
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/server ./server
 
-# Expose port
-EXPOSE 5173
+# Expose port for the middleware
+EXPOSE 8080
 
-# Serve the application
-CMD ["serve", "-s", "dist", "-l", "5173", "-n"]
+# Start the middleware server
+CMD ["node", "server/index.js"]
 

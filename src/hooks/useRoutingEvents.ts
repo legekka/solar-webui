@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import solarClient from '@/api/client';
 
 export interface RoutingEvent {
   type: 'request_start' | 'request_routed' | 'request_success' | 'request_error' | 'keepalive';
@@ -37,7 +38,7 @@ export interface RequestState {
   removing?: boolean;
 }
 
-export function useRoutingEvents(baseUrl: string) {
+export function useRoutingEvents() {
   const [requests, setRequests] = useState<Map<string, RequestState>>(new Map());
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
@@ -130,9 +131,7 @@ export function useRoutingEvents(baseUrl: string) {
   }, [updateRequest, removeRequest]);
 
   const connect = useCallback(() => {
-    const wsProtocol = baseUrl.startsWith('https') ? 'wss' : 'ws';
-    const url = baseUrl.replace(/^https?:\/\//, '');
-    const wsUrl = `${wsProtocol}://${url}/ws/routing`;
+    const wsUrl = solarClient.getControlWebSocketUrl('/ws/routing');
 
     wsRef.current = new WebSocket(wsUrl);
 
@@ -169,7 +168,7 @@ export function useRoutingEvents(baseUrl: string) {
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }
-      reconnectTimeoutRef.current = setTimeout(() => {
+      reconnectTimeoutRef.current = window.setTimeout(() => {
         connect();
       }, 5000); // Reconnect after 5 seconds
     };
@@ -177,7 +176,7 @@ export function useRoutingEvents(baseUrl: string) {
     wsRef.current.onerror = () => {
       wsRef.current?.close();
     };
-  }, [baseUrl, handleEvent]);
+  }, [handleEvent]);
 
   useEffect(() => {
     connect();

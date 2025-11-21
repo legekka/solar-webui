@@ -1,4 +1,5 @@
 import { useEffect, useCallback, useRef } from 'react';
+import solarClient from '@/api/client';
 import { MemoryInfo } from '@/api/types';
 
 interface HostStatusUpdate {
@@ -15,7 +16,6 @@ interface StatusMessage {
 }
 
 export function useHostStatus(
-  baseUrl: string,
   onStatusUpdate: (update: HostStatusUpdate) => void,
   onInitialStatus: (statuses: HostStatusUpdate[]) => void
 ) {
@@ -24,8 +24,7 @@ export function useHostStatus(
   const pingIntervalRef = useRef<number | null>(null);
 
   const connect = useCallback(() => {
-    const wsProtocol = baseUrl.startsWith('https') ? 'wss' : 'ws';
-    const wsUrl = `${wsProtocol}://${baseUrl.replace(/^https?:\/\//, '')}/ws/status`;
+    const wsUrl = solarClient.getControlWebSocketUrl('/ws/status');
 
     console.log('Connecting to status WebSocket:', wsUrl);
 
@@ -87,7 +86,7 @@ export function useHostStatus(
     };
 
     return ws;
-  }, [baseUrl, onStatusUpdate, onInitialStatus]);
+  }, [onStatusUpdate, onInitialStatus]);
 
   useEffect(() => {
     const ws = connect();

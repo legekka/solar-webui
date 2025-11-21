@@ -10,46 +10,61 @@ import {
   GatewayEventDTO,
 } from './types';
 
+const DEFAULT_RELATIVE_CONTROL_BASE = '/api/control';
+
+const isAbsoluteUrl = (value: string) => /^https?:\/\//i.test(value);
+
+const normalizeHttpBase = (value?: string | null): string => {
+  let result = (value || '').trim();
+  if (!result) {
+    return DEFAULT_RELATIVE_CONTROL_BASE;
+  }
+  if (isAbsoluteUrl(result)) {
+    return result.replace(/\/+$/, '');
+  }
+  if (!result.startsWith('/')) {
+    result = `/${result}`;
+  }
+  return result.replace(/\/+$/, '');
+};
+
 class SolarClient {
   private client: AxiosInstance;
+  private httpBase: string;
 
-  constructor(baseURL?: string, apiKey?: string) {
-    const effectiveBaseURL = baseURL || import.meta.env.VITE_SOLAR_CONTROL_URL || 'http://localhost:8000';
-    const effectiveApiKey = apiKey || import.meta.env.VITE_SOLAR_CONTROL_API_KEY || '';
-    
-    // Debug logging (only in development)
+  constructor(baseURL?: string) {
+    const overrideBase =
+      baseURL ||
+      import.meta.env.VITE_SOLAR_WEBUI_API_BASE ||
+      import.meta.env.VITE_SOLAR_CONTROL_URL ||
+      DEFAULT_RELATIVE_CONTROL_BASE;
+
+    this.httpBase = normalizeHttpBase(overrideBase);
+
     if (import.meta.env.DEV) {
       console.log('SolarClient initialized:', {
-        baseURL: effectiveBaseURL,
-        hasApiKey: !!effectiveApiKey,
-        apiKeyLength: effectiveApiKey.length
+        httpBase: this.httpBase,
       });
     }
-    
+
     this.client = axios.create({
-      baseURL: effectiveBaseURL,
+      baseURL: this.httpBase,
       headers: {
-        'X-API-Key': effectiveApiKey,
         'Content-Type': 'application/json',
       },
     });
-    
-    // Add request interceptor to log outgoing requests in dev
-    if (import.meta.env.DEV) {
-      this.client.interceptors.request.use((config) => {
-        console.log(`→ ${config.method?.toUpperCase()} ${config.url}`, {
-          hasApiKey: !!config.headers['X-API-Key']
-        });
-        return config;
-      });
+
+    const directApiKey = import.meta.env.VITE_SOLAR_CONTROL_API_KEY;
+    if (isAbsoluteUrl(this.httpBase) && directApiKey) {
+      this.client.defaults.headers.common['X-API-Key'] = directApiKey;
+      this.client.defaults.headers.common['Authorization'] = `Bearer ${directApiKey}`;
     }
-    
-    // Add response interceptor to log errors
+
     this.client.interceptors.response.use(
       (response) => response,
       (error) => {
         if (error.response?.status === 401) {
-          console.error('❌ 401 Unauthorized - Check your API key in .env file');
+          console.error('❌ 401 Unauthorized - solar-webui proxy may be missing SOLAR_CONTROL_API_KEY');
         }
         return Promise.reject(error);
       }
@@ -124,10 +139,12 @@ class SolarClient {
     return response.data;
   }
 
-  getInstanceStateWebSocketUrl(controlBaseUrl: string, hostId: string, instanceId: string): string {
-    const wsProtocol = controlBaseUrl.startsWith('https') ? 'wss' : 'ws';
-    const base = controlBaseUrl.replace(/^https?:\/\//, '');
-    return `${wsProtocol}://${base}/ws/instances/${hostId}/${instanceId}/state`;
+  getInstanceStateWebSocketUrl(hostId: string, instanceId: string): string {
+    return this.buildWebSocketUrl(`/ws/instances/${hostId}/${instanceId}/state`);
+  }
+
+  getControlWebSocketUrl(path: string): string {
+    return this.buildWebSocketUrl(path);
   }
 
   // Gateway monitoring
@@ -181,10 +198,31 @@ class SolarClient {
   }
 
   // WebSocket URL for logs
-  getLogWebSocketUrl(hostUrl: string, instanceId: string, apiKey: string): string {
-    const wsProtocol = hostUrl.startsWith('https') ? 'wss' : 'ws';
-    const url = hostUrl.replace(/^https?:\/\//, '');
-    return `${wsProtocol}://${url}/instances/${instanceId}/logs?api_key=${apiKey}`;
+  getLogWebSocketUrl(hostId: string, instanceId: string): string {
+    return this.buildWebSocketUrl(`/ws/logs/${hostId}/${instanceId}`);
+  }
+
+  private buildWebSocketUrl(path: string): string {
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+
+    const resolveBase = () => {
+      if (isAbsoluteUrl(this.httpBase)) {
+        return new URL(this.httpBase);
+      }
+      if (typeof window !== 'undefined') {
+        return new URL(this.httpBase, window.location.origin);
+      }
+      return null;
+    };
+
+    const baseUrl = resolveBase();
+    if (!baseUrl) {
+      return normalizedPath;
+    }
+
+    const scheme = baseUrl.protocol === 'https:' ? 'wss:' : 'ws:';
+    const basePath = baseUrl.pathname.replace(/\/$/, '');
+    return `${scheme}//${baseUrl.host}${basePath}${normalizedPath}`;
   }
 }
 

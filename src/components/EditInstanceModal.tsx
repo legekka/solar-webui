@@ -1,6 +1,18 @@
 import { useState } from 'react';
-import { X } from 'lucide-react';
-import { Instance, InstanceConfig } from '@/api/types';
+import { X, Cpu, Brain, Tags } from 'lucide-react';
+import { 
+  Instance, 
+  InstanceConfig, 
+  getBackendType, 
+  getBackendLabel,
+  isLlamaCppConfig,
+  isHuggingFaceCausalConfig,
+  isHuggingFaceClassificationConfig,
+  LlamaCppConfig,
+  HuggingFaceCausalConfig,
+  HuggingFaceClassificationConfig,
+  BackendType,
+} from '@/api/types';
 
 interface EditInstanceModalProps {
   instance: Instance;
@@ -9,23 +21,71 @@ interface EditInstanceModalProps {
   onUpdate: (hostId: string, instanceId: string, config: InstanceConfig) => Promise<void>;
 }
 
+const DEVICE_OPTIONS = ['auto', 'cuda', 'mps', 'cpu'];
+const DTYPE_OPTIONS = ['auto', 'float16', 'bfloat16', 'float32'];
+
+const BackendIcon = ({ backendType }: { backendType: BackendType }) => {
+  switch (backendType) {
+    case 'llamacpp':
+      return <Cpu size={18} className="text-nord-10" />;
+    case 'huggingface_causal':
+      return <Brain size={18} className="text-nord-14" />;
+    case 'huggingface_classification':
+      return <Tags size={18} className="text-nord-13" />;
+    default:
+      return <Cpu size={18} className="text-nord-4" />;
+  }
+};
+
 export function EditInstanceModal({ instance, hostId, onClose, onUpdate }: EditInstanceModalProps) {
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState<InstanceConfig>({
-    ...instance.config,
-    special: instance.config.special ?? false,
+  const backendType = getBackendType(instance.config);
+  const [formData, setFormData] = useState<InstanceConfig>(() => {
+    // Initialize with correct backend_type and special handling
+    if (isLlamaCppConfig(instance.config)) {
+      return {
+        ...instance.config,
+        backend_type: 'llamacpp',
+        special: (instance.config as LlamaCppConfig).special ?? false,
+      } as LlamaCppConfig;
+    }
+    return { ...instance.config } as InstanceConfig;
+  });
+  
+  // Handle labels as comma-separated string
+  const [labelsInput, setLabelsInput] = useState(() => {
+    if (isHuggingFaceClassificationConfig(instance.config)) {
+      return (instance.config as HuggingFaceClassificationConfig).labels?.join(', ') || '';
+    }
+    return '';
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.model || !formData.alias) {
-      alert('Model and Alias are required');
-      return;
+    
+    // Validate required fields based on backend type
+    if (isLlamaCppConfig(formData)) {
+      if (!(formData as LlamaCppConfig).model || !formData.alias) {
+        alert('Model Path and Alias are required');
+        return;
+      }
+    } else {
+      if (!(formData as HuggingFaceCausalConfig).model_id || !formData.alias) {
+        alert('Model ID and Alias are required');
+        return;
+      }
+    }
+
+    // Parse labels for classification models
+    let finalConfig = { ...formData };
+    if (isHuggingFaceClassificationConfig(formData) && labelsInput.trim()) {
+      (finalConfig as HuggingFaceClassificationConfig).labels = 
+        labelsInput.split(',').map(l => l.trim()).filter(l => l);
     }
 
     setLoading(true);
     try {
-      await onUpdate(hostId, instance.id, formData);
+      await onUpdate(hostId, instance.id, finalConfig);
       onClose();
     } catch (error: any) {
       console.error('Failed to update instance:', error);
@@ -35,8 +95,10 @@ export function EditInstanceModal({ instance, hostId, onClose, onUpdate }: EditI
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target;
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
+    
     setFormData((prev) => ({
       ...prev,
       [name]:
@@ -55,7 +117,10 @@ export function EditInstanceModal({ instance, hostId, onClose, onUpdate }: EditI
       <div className="bg-nord-1 rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-nord-3">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-nord-3 sticky top-0 bg-nord-1 z-10">
-          <h2 className="text-xl font-bold text-nord-6">Edit Instance: {instance.config.alias}</h2>
+          <div className="flex items-center gap-2">
+            <BackendIcon backendType={backendType} />
+            <h2 className="text-xl font-bold text-nord-6">Edit {getBackendLabel(backendType)} Instance</h2>
+          </div>
           <button
             onClick={onClose}
             className="p-1 hover:bg-nord-2 rounded transition-colors text-nord-4"
@@ -74,190 +139,348 @@ export function EditInstanceModal({ instance, hostId, onClose, onUpdate }: EditI
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Model */}
+            {/* Backend-specific fields */}
+            {isLlamaCppConfig(formData) ? (
+              /* llama.cpp specific fields */
+              <>
+                {/* Model Path */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-nord-4 mb-1">
+                    Model Path <span className="text-nord-11">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="model"
+                    value={(formData as LlamaCppConfig).model}
+                    onChange={handleChange}
+                    placeholder="/path/to/model.gguf"
+                    required
+                    className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Special Flag */}
+                <div className="md:col-span-2 flex items-start gap-3">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="special"
+                      name="special"
+                      checked={!!(formData as LlamaCppConfig).special}
+                      onChange={handleChange}
+                      className="h-4 w-4 rounded border-nord-3 bg-nord-1 text-nord-10 focus:ring-nord-10"
+                      disabled={instance.status !== 'stopped'}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="special" className="block text-sm font-medium text-nord-4 mb-1">
+                      Enable --special flag
+                    </label>
+                    <p className="text-xs text-nord-4">
+                      When enabled, llama-server will be started with the <code>--special</code> flag.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Alias */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-nord-4 mb-1">
+                    Alias <span className="text-nord-11">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="alias"
+                    value={formData.alias}
+                    onChange={handleChange}
+                    placeholder="model-name:size"
+                    required
+                    className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Chat Template File */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-nord-4 mb-1">
+                    Chat Template File (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    name="chat_template_file"
+                    value={(formData as LlamaCppConfig).chat_template_file || ''}
+                    onChange={handleChange}
+                    placeholder="/path/to/template.jinja"
+                    className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Threads */}
+                <div>
+                  <label className="block text-sm font-medium text-nord-4 mb-1">
+                    Threads
+                  </label>
+                  <input
+                    type="number"
+                    name="threads"
+                    value={(formData as LlamaCppConfig).threads}
+                    onChange={handleChange}
+                    min="1"
+                    className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
+                  />
+                </div>
+
+                {/* GPU Layers */}
+                <div>
+                  <label className="block text-sm font-medium text-nord-4 mb-1">
+                    GPU Layers
+                  </label>
+                  <input
+                    type="number"
+                    name="n_gpu_layers"
+                    value={(formData as LlamaCppConfig).n_gpu_layers}
+                    onChange={handleChange}
+                    min="0"
+                    className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Context Size */}
+                <div>
+                  <label className="block text-sm font-medium text-nord-4 mb-1">
+                    Context Size
+                  </label>
+                  <input
+                    type="number"
+                    name="ctx_size"
+                    value={(formData as LlamaCppConfig).ctx_size}
+                    onChange={handleChange}
+                    min="512"
+                    step="512"
+                    className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Temperature */}
+                <div>
+                  <label className="block text-sm font-medium text-nord-4 mb-1">
+                    Temperature
+                  </label>
+                  <input
+                    type="number"
+                    name="temp"
+                    value={(formData as LlamaCppConfig).temp}
+                    onChange={handleChange}
+                    min="0"
+                    max="2"
+                    step="0.01"
+                    className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Top P */}
+                <div>
+                  <label className="block text-sm font-medium text-nord-4 mb-1">
+                    Top P
+                  </label>
+                  <input
+                    type="number"
+                    name="top_p"
+                    value={(formData as LlamaCppConfig).top_p}
+                    onChange={handleChange}
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Top K */}
+                <div>
+                  <label className="block text-sm font-medium text-nord-4 mb-1">
+                    Top K
+                  </label>
+                  <input
+                    type="number"
+                    name="top_k"
+                    value={(formData as LlamaCppConfig).top_k}
+                    onChange={handleChange}
+                    min="0"
+                    className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Min P */}
+                <div>
+                  <label className="block text-sm font-medium text-nord-4 mb-1">
+                    Min P
+                  </label>
+                  <input
+                    type="number"
+                    name="min_p"
+                    value={(formData as LlamaCppConfig).min_p}
+                    onChange={handleChange}
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
+                  />
+                </div>
+              </>
+            ) : (
+              /* HuggingFace specific fields */
+              <>
+                {/* Model ID */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-nord-4 mb-1">
+                    Model ID <span className="text-nord-11">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="model_id"
+                    value={(formData as HuggingFaceCausalConfig).model_id || ''}
+                    onChange={handleChange}
+                    placeholder="microsoft/deberta-v3-base or /local/path"
+                    required
+                    className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
+                  />
+                  <p className="text-xs text-nord-4 mt-1">
+                    HuggingFace model ID or local path
+                  </p>
+                </div>
+
+                {/* Alias */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-nord-4 mb-1">
+                    Alias <span className="text-nord-11">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="alias"
+                    value={formData.alias}
+                    onChange={handleChange}
+                    placeholder="classifier:deberta"
+                    required
+                    className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Device */}
+                <div>
+                  <label className="block text-sm font-medium text-nord-4 mb-1">
+                    Device
+                  </label>
+                  <select
+                    name="device"
+                    value={(formData as HuggingFaceCausalConfig).device || 'auto'}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
+                  >
+                    {DEVICE_OPTIONS.map((d) => (
+                      <option key={d} value={d}>
+                        {d === 'auto' ? 'auto (detect)' : d}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Dtype */}
+                <div>
+                  <label className="block text-sm font-medium text-nord-4 mb-1">
+                    Data Type
+                  </label>
+                  <select
+                    name="dtype"
+                    value={(formData as HuggingFaceCausalConfig).dtype || 'auto'}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
+                  >
+                    {DTYPE_OPTIONS.map((d) => (
+                      <option key={d} value={d}>
+                        {d === 'auto' ? 'auto (detect)' : d}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Max Length */}
+                <div>
+                  <label className="block text-sm font-medium text-nord-4 mb-1">
+                    Max Length
+                  </label>
+                  <input
+                    type="number"
+                    name="max_length"
+                    value={(formData as HuggingFaceCausalConfig).max_length}
+                    onChange={handleChange}
+                    min="1"
+                    className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Classification-specific: Labels */}
+                {isHuggingFaceClassificationConfig(formData) && (
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-nord-4 mb-1">
+                      Labels (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={labelsInput}
+                      onChange={(e) => setLabelsInput(e.target.value)}
+                      placeholder="positive, negative, neutral"
+                      className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
+                    />
+                    <p className="text-xs text-nord-4 mt-1">
+                      Comma-separated list of label names. Leave empty to use model defaults.
+                    </p>
+                  </div>
+                )}
+
+                {/* Trust Remote Code */}
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="trust_remote_code"
+                    name="trust_remote_code"
+                    checked={!!(formData as HuggingFaceCausalConfig).trust_remote_code}
+                    onChange={handleChange}
+                    className="h-4 w-4 mt-0.5 rounded border-nord-3 bg-nord-1 text-nord-10 focus:ring-nord-10"
+                  />
+                  <div>
+                    <label htmlFor="trust_remote_code" className="block text-sm font-medium text-nord-4">
+                      Trust Remote Code
+                    </label>
+                    <p className="text-xs text-nord-4">
+                      Allow running custom model code from HuggingFace
+                    </p>
+                  </div>
+                </div>
+
+                {/* Causal-specific: Flash Attention */}
+                {isHuggingFaceCausalConfig(formData) && (
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      id="use_flash_attention"
+                      name="use_flash_attention"
+                      checked={!!(formData as HuggingFaceCausalConfig).use_flash_attention}
+                      onChange={handleChange}
+                      className="h-4 w-4 mt-0.5 rounded border-nord-3 bg-nord-1 text-nord-10 focus:ring-nord-10"
+                    />
+                    <div>
+                      <label htmlFor="use_flash_attention" className="block text-sm font-medium text-nord-4">
+                        Use Flash Attention 2
+                      </label>
+                      <p className="text-xs text-nord-4">
+                        Enable Flash Attention for faster inference (requires compatible GPU)
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Common fields */}
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-nord-4 mb-1">
-                Model Path <span className="text-nord-11">*</span>
-              </label>
-              <input
-                type="text"
-                name="model"
-                value={formData.model}
-                onChange={handleChange}
-                placeholder="/path/to/model.gguf"
-                required
-                className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
-              />
-            </div>
-
-            {/* Special Flag */}
-            <div className="md:col-span-2 flex items-start gap-3">
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="special"
-                  name="special"
-                  checked={!!formData.special}
-                  onChange={handleChange}
-                  className="h-4 w-4 rounded border-nord-3 bg-nord-1 text-nord-10 focus:ring-nord-10"
-                  disabled={instance.status !== 'stopped'}
-                />
-              </div>
-              <div>
-                <label htmlFor="special" className="block text-sm font-medium text-nord-4 mb-1">
-                  Enable --special flag
-                </label>
-                <p className="text-xs text-nord-4">
-                  When enabled, llama-server will be started with the <code>--special</code> flag for this instance.
-                </p>
-              </div>
-            </div>
-
-            {/* Alias */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-nord-4 mb-1">
-                Alias <span className="text-nord-11">*</span>
-              </label>
-              <input
-                type="text"
-                name="alias"
-                value={formData.alias}
-                onChange={handleChange}
-                placeholder="model-name:size"
-                required
-                className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
-              />
-            </div>
-
-            {/* Chat Template File */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-nord-4 mb-1">
-                Chat Template File (Optional)
-              </label>
-              <input
-                type="text"
-                name="chat_template_file"
-                value={formData.chat_template_file || ''}
-                onChange={handleChange}
-                placeholder="/path/to/template.jinja"
-                className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
-              />
-            </div>
-
-            {/* Threads */}
-            <div>
-              <label className="block text-sm font-medium text-nord-4 mb-1">
-                Threads
-              </label>
-              <input
-                type="number"
-                name="threads"
-                value={formData.threads}
-                onChange={handleChange}
-                min="1"
-                className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
-              />
-            </div>
-
-            {/* GPU Layers */}
-            <div>
-              <label className="block text-sm font-medium text-nord-4 mb-1">
-                GPU Layers
-              </label>
-              <input
-                type="number"
-                name="n_gpu_layers"
-                value={formData.n_gpu_layers}
-                onChange={handleChange}
-                min="0"
-                className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
-              />
-            </div>
-
-            {/* Context Size */}
-            <div>
-              <label className="block text-sm font-medium text-nord-4 mb-1">
-                Context Size
-              </label>
-              <input
-                type="number"
-                name="ctx_size"
-                value={formData.ctx_size}
-                onChange={handleChange}
-                min="512"
-                step="512"
-                className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
-              />
-            </div>
-
-            {/* Temperature */}
-            <div>
-              <label className="block text-sm font-medium text-nord-4 mb-1">
-                Temperature
-              </label>
-              <input
-                type="number"
-                name="temp"
-                value={formData.temp}
-                onChange={handleChange}
-                min="0"
-                max="2"
-                step="0.01"
-                className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
-              />
-            </div>
-
-            {/* Top P */}
-            <div>
-              <label className="block text-sm font-medium text-nord-4 mb-1">
-                Top P
-              </label>
-              <input
-                type="number"
-                name="top_p"
-                value={formData.top_p}
-                onChange={handleChange}
-                min="0"
-                max="1"
-                step="0.01"
-                className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
-              />
-            </div>
-
-            {/* Top K */}
-            <div>
-              <label className="block text-sm font-medium text-nord-4 mb-1">
-                Top K
-              </label>
-              <input
-                type="number"
-                name="top_k"
-                value={formData.top_k}
-                onChange={handleChange}
-                min="0"
-                className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
-              />
-            </div>
-
-            {/* Min P */}
-            <div>
-              <label className="block text-sm font-medium text-nord-4 mb-1">
-                Min P
-              </label>
-              <input
-                type="number"
-                name="min_p"
-                value={formData.min_p}
-                onChange={handleChange}
-                min="0"
-                max="1"
-                step="0.01"
-                className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
-              />
-            </div>
-
-            {/* API Key */}
-            <div>
               <label className="block text-sm font-medium text-nord-4 mb-1">
                 API Key
               </label>
@@ -265,20 +488,6 @@ export function EditInstanceModal({ instance, hostId, onClose, onUpdate }: EditI
                 type="text"
                 name="api_key"
                 value={formData.api_key}
-                onChange={handleChange}
-                className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
-              />
-            </div>
-
-            {/* Host */}
-            <div>
-              <label className="block text-sm font-medium text-nord-4 mb-1">
-                Host
-              </label>
-              <input
-                type="text"
-                name="host"
-                value={formData.host}
                 onChange={handleChange}
                 className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
               />
@@ -308,4 +517,3 @@ export function EditInstanceModal({ instance, hostId, onClose, onUpdate }: EditI
     </div>
   );
 }
-

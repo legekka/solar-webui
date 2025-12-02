@@ -1,6 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
-import { Play, Square, RotateCw, FileText, Trash2, Edit } from 'lucide-react';
-import { Instance, InstanceConfig } from '@/api/types';
+import { Play, Square, RotateCw, FileText, Trash2, Edit, Cpu, Brain, Tags } from 'lucide-react';
+import { 
+  Instance, 
+  InstanceConfig, 
+  getBackendType, 
+  getBackendLabel, 
+  getBackendColor,
+  isLlamaCppConfig,
+  isHuggingFaceCausalConfig,
+  isHuggingFaceClassificationConfig,
+  LlamaCppConfig,
+  HuggingFaceCausalConfig,
+  HuggingFaceClassificationConfig,
+  BackendType,
+} from '@/api/types';
 import { cn, getStatusColor, formatUptime } from '@/lib/utils';
 import { LogViewer } from './LogViewer';
 import { EditInstanceModal } from './EditInstanceModal';
@@ -15,6 +28,19 @@ interface InstanceCardProps {
   onUpdate: (hostId: string, instanceId: string, config: InstanceConfig) => Promise<void>;
   onDelete: (hostId: string, instanceId: string) => Promise<void>;
 }
+
+const BackendIcon = ({ backendType }: { backendType: BackendType }) => {
+  switch (backendType) {
+    case 'llamacpp':
+      return <Cpu size={14} />;
+    case 'huggingface_causal':
+      return <Brain size={14} />;
+    case 'huggingface_classification':
+      return <Tags size={14} />;
+    default:
+      return <Cpu size={14} />;
+  }
+};
 
 export function InstanceCard({
   instance,
@@ -31,10 +57,13 @@ export function InstanceCard({
 
   const { state: runtimeState } = useInstanceState(hostId, instance.id);
 
-  // Smooth prefill appearance/disappearance
+  // Smooth prefill appearance/disappearance (only for llama.cpp)
   const [prefillVisible, setPrefillVisible] = useState(false);
   const hideTimerRef = useRef<number | null>(null);
-  const prefillActive = typeof runtimeState?.prefill_progress === 'number' && runtimeState.prefill_progress < 1;
+  const backendType = getBackendType(instance.config);
+  const prefillActive = backendType === 'llamacpp' && 
+    typeof runtimeState?.prefill_progress === 'number' && 
+    runtimeState.prefill_progress < 1;
 
   useEffect(() => {
     if (prefillActive) {
@@ -73,18 +102,104 @@ export function InstanceCard({
     }
   };
 
+  // Get model display name based on backend type
+  const getModelDisplay = () => {
+    if (isLlamaCppConfig(instance.config)) {
+      return (instance.config as LlamaCppConfig).model;
+    }
+    return (instance.config as HuggingFaceCausalConfig | HuggingFaceClassificationConfig).model_id;
+  };
+
+  // Get backend-specific details
+  const renderBackendDetails = () => {
+    if (isLlamaCppConfig(instance.config)) {
+      const config = instance.config as LlamaCppConfig;
+      return (
+        <>
+          <div className="flex justify-between">
+            <span>Context:</span>
+            <span className="font-mono text-nord-8">{config.ctx_size.toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>GPU Layers:</span>
+            <span className="font-mono text-nord-8">{config.n_gpu_layers}</span>
+          </div>
+        </>
+      );
+    }
+
+    if (isHuggingFaceCausalConfig(instance.config)) {
+      const config = instance.config as HuggingFaceCausalConfig;
+      return (
+        <>
+          <div className="flex justify-between">
+            <span>Max Length:</span>
+            <span className="font-mono text-nord-8">{config.max_length.toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Device:</span>
+            <span className="font-mono text-nord-8">{config.device}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Dtype:</span>
+            <span className="font-mono text-nord-8">{config.dtype}</span>
+          </div>
+        </>
+      );
+    }
+
+    if (isHuggingFaceClassificationConfig(instance.config)) {
+      const config = instance.config as HuggingFaceClassificationConfig;
+      return (
+        <>
+          <div className="flex justify-between">
+            <span>Max Length:</span>
+            <span className="font-mono text-nord-8">{config.max_length.toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Device:</span>
+            <span className="font-mono text-nord-8">{config.device}</span>
+          </div>
+          {config.labels && config.labels.length > 0 && (
+            <div className="flex justify-between">
+              <span>Labels:</span>
+              <span className="font-mono text-nord-8 text-right truncate max-w-[140px]" title={config.labels.join(', ')}>
+                {config.labels.length} defined
+              </span>
+            </div>
+          )}
+        </>
+      );
+    }
+
+    return null;
+  };
+
   return (
     <>
       <div className="bg-nord-2 rounded-lg shadow-lg p-4 hover:shadow-xl transition-shadow border border-nord-3">
         {/* Header */}
         <div className="flex items-start justify-between gap-2 mb-3">
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-lg truncate text-nord-6">{instance.config.alias}</h3>
-            <p className="text-sm text-nord-4 truncate" title={instance.config.model}>
-              {instance.config.model}
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="font-semibold text-lg truncate text-nord-6">{instance.config.alias}</h3>
+            </div>
+            <p className="text-sm text-nord-4 truncate" title={getModelDisplay()}>
+              {getModelDisplay()}
             </p>
           </div>
-          <div className="flex items-center gap-1 flex-shrink-0">
+          <div className="flex items-center gap-1 flex-shrink-0 flex-wrap justify-end">
+            {/* Backend Type Badge */}
+            <span
+              className={cn(
+                'px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap flex items-center gap-1',
+                getBackendColor(backendType)
+              )}
+            >
+              <BackendIcon backendType={backendType} />
+              {getBackendLabel(backendType)}
+            </span>
+            {/* Status Badge */}
             <span
               className={cn(
                 'px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap',
@@ -123,34 +238,37 @@ export function InstanceCard({
 
         {/* Details */}
         <div className="space-y-1 text-sm text-nord-4 mb-3">
-          <div
-            className="mb-2 overflow-hidden"
-            style={{
-              opacity: prefillVisible ? 1 : 0,
-              transform: prefillVisible ? 'scaleY(1)' : 'scaleY(0.95)',
-              transformOrigin: 'top',
-              maxHeight: prefillVisible ? 28 : 0,
-              transition: 'opacity 200ms ease, transform 200ms ease, max-height 250ms ease',
-            }}
-          >
-            <div className="flex justify-between items-center mb-1">
-              <span>Prefill</span>
-              <span className="font-mono text-nord-8">
-                {typeof runtimeState?.prefill_progress === 'number'
-                  ? Math.round(runtimeState.prefill_progress * 100)
-                  : 0}%
-              </span>
+          {/* Prefill progress (llama.cpp only) */}
+          {backendType === 'llamacpp' && (
+            <div
+              className="mb-2 overflow-hidden"
+              style={{
+                opacity: prefillVisible ? 1 : 0,
+                transform: prefillVisible ? 'scaleY(1)' : 'scaleY(0.95)',
+                transformOrigin: 'top',
+                maxHeight: prefillVisible ? 28 : 0,
+                transition: 'opacity 200ms ease, transform 200ms ease, max-height 250ms ease',
+              }}
+            >
+              <div className="flex justify-between items-center mb-1">
+                <span>Prefill</span>
+                <span className="font-mono text-nord-8">
+                  {typeof runtimeState?.prefill_progress === 'number'
+                    ? Math.round(runtimeState.prefill_progress * 100)
+                    : 0}%
+                </span>
+              </div>
+              <div className="w-full h-1.5 bg-nord-3 rounded">
+                <div
+                  className="h-1.5 bg-nord-10 rounded"
+                  style={{
+                    width: `${Math.max(0, Math.min(100, (runtimeState?.prefill_progress || 0) * 100))}%`,
+                    transition: 'width 200ms ease',
+                  }}
+                />
+              </div>
             </div>
-            <div className="w-full h-1.5 bg-nord-3 rounded">
-              <div
-                className="h-1.5 bg-nord-10 rounded"
-                style={{
-                  width: `${Math.max(0, Math.min(100, (runtimeState?.prefill_progress || 0) * 100))}%`,
-                  transition: 'width 200ms ease',
-                }}
-              />
-            </div>
-          </div>
+          )}
           {instance.port && (
             <div className="flex justify-between">
               <span>Port:</span>
@@ -169,14 +287,18 @@ export function InstanceCard({
               <span className="font-mono text-nord-8">{formatUptime(instance.started_at)}</span>
             </div>
           )}
-          <div className="flex justify-between">
-            <span>Context:</span>
-            <span className="font-mono text-nord-8">{instance.config.ctx_size.toLocaleString()}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>GPU Layers:</span>
-            <span className="font-mono text-nord-8">{instance.config.n_gpu_layers}</span>
-          </div>
+          {/* Backend-specific details */}
+          {renderBackendDetails()}
+          
+          {/* Supported endpoints (if available) */}
+          {instance.supported_endpoints && instance.supported_endpoints.length > 0 && (
+            <div className="flex justify-between">
+              <span>Endpoints:</span>
+              <span className="font-mono text-nord-8 text-xs">
+                {instance.supported_endpoints.length}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Error message */}
@@ -256,4 +378,3 @@ export function InstanceCard({
     </>
   );
 }
-

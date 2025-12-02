@@ -4,6 +4,8 @@ export type InstanceStatus = 'stopped' | 'starting' | 'running' | 'failed' | 'st
 
 export type HostStatus = 'online' | 'offline' | 'error';
 
+export type BackendType = 'llamacpp' | 'huggingface_causal' | 'huggingface_classification';
+
 export interface MemoryInfo {
   used_gb: number;
   total_gb: number;
@@ -11,9 +13,19 @@ export interface MemoryInfo {
   memory_type: string;
 }
 
-export interface InstanceConfig {
-  model: string;
+// Base config interface with common fields
+export interface BaseInstanceConfig {
+  backend_type: BackendType;
   alias: string;
+  host: string;
+  port?: number;
+  api_key: string;
+}
+
+// llama.cpp specific config
+export interface LlamaCppConfig extends BaseInstanceConfig {
+  backend_type: 'llamacpp';
+  model: string;
   threads: number;
   n_gpu_layers: number;
   temp: number;
@@ -22,10 +34,79 @@ export interface InstanceConfig {
   min_p: number;
   ctx_size: number;
   chat_template_file?: string;
-  host: string;
-  port?: number;
-  api_key: string;
   special?: boolean;
+}
+
+// HuggingFace Causal LM config
+export interface HuggingFaceCausalConfig extends BaseInstanceConfig {
+  backend_type: 'huggingface_causal';
+  model_id: string;
+  device: string;
+  dtype: string;
+  max_length: number;
+  trust_remote_code?: boolean;
+  use_flash_attention?: boolean;
+}
+
+// HuggingFace Classification config
+export interface HuggingFaceClassificationConfig extends BaseInstanceConfig {
+  backend_type: 'huggingface_classification';
+  model_id: string;
+  device: string;
+  dtype: string;
+  max_length: number;
+  labels?: string[];
+  trust_remote_code?: boolean;
+}
+
+// Union type for all config types
+export type InstanceConfig = LlamaCppConfig | HuggingFaceCausalConfig | HuggingFaceClassificationConfig;
+
+// Helper to check backend type
+export function isLlamaCppConfig(config: InstanceConfig): config is LlamaCppConfig {
+  return config.backend_type === 'llamacpp' || !('backend_type' in config) || config.backend_type === undefined;
+}
+
+export function isHuggingFaceCausalConfig(config: InstanceConfig): config is HuggingFaceCausalConfig {
+  return config.backend_type === 'huggingface_causal';
+}
+
+export function isHuggingFaceClassificationConfig(config: InstanceConfig): config is HuggingFaceClassificationConfig {
+  return config.backend_type === 'huggingface_classification';
+}
+
+export function getBackendType(config: InstanceConfig): BackendType {
+  if ('backend_type' in config && config.backend_type) {
+    return config.backend_type;
+  }
+  // Legacy configs without backend_type are llamacpp
+  return 'llamacpp';
+}
+
+export function getBackendLabel(backendType: BackendType): string {
+  switch (backendType) {
+    case 'llamacpp':
+      return 'llama.cpp';
+    case 'huggingface_causal':
+      return 'HF Causal';
+    case 'huggingface_classification':
+      return 'HF Classifier';
+    default:
+      return backendType;
+  }
+}
+
+export function getBackendColor(backendType: BackendType): string {
+  switch (backendType) {
+    case 'llamacpp':
+      return 'bg-nord-10 text-nord-6'; // Blue
+    case 'huggingface_causal':
+      return 'bg-nord-14 text-nord-0'; // Green
+    case 'huggingface_classification':
+      return 'bg-nord-13 text-nord-0'; // Yellow
+    default:
+      return 'bg-nord-3 text-nord-4';
+  }
 }
 
 export interface Instance {
@@ -38,6 +119,7 @@ export interface Instance {
   started_at?: string;
   error_message?: string;
   retry_count: number;
+  supported_endpoints?: string[];
   // Ephemeral runtime fields (provided via separate state API/WS)
   busy?: boolean;
   prefill_progress?: number;
@@ -161,4 +243,3 @@ export interface GatewayEventDTO {
   data?: any;
   timestamp?: string;
 }
-

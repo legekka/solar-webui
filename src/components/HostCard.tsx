@@ -1,9 +1,9 @@
-import { useState } from 'react';
-import { Instance, InstanceConfig, MemoryInfo } from '@/api/types';
+import { useState, useMemo } from 'react';
+import { Instance, InstanceConfig, MemoryInfo, getBackendType, BackendType } from '@/api/types';
 import { cn, getStatusColor, formatDate, getMemoryColor, formatMemoryUsage } from '@/lib/utils';
 import { InstanceCard } from './InstanceCard';
 import { AddInstanceModal } from './AddInstanceModal';
-import { Server, Trash2, Plus } from 'lucide-react';
+import { Server, Trash2, Plus, Cpu, Brain, Tags } from 'lucide-react';
 
 interface HostCardProps {
   host: {
@@ -25,6 +25,19 @@ interface HostCardProps {
   onDeleteHost: (hostId: string) => Promise<void>;
 }
 
+const BackendIcon = ({ backendType, size = 14 }: { backendType: BackendType; size?: number }) => {
+  switch (backendType) {
+    case 'llamacpp':
+      return <Cpu size={size} />;
+    case 'huggingface_causal':
+      return <Brain size={size} />;
+    case 'huggingface_classification':
+      return <Tags size={size} />;
+    default:
+      return <Cpu size={size} />;
+  }
+};
+
 export function HostCard({
   host,
   onStartInstance,
@@ -37,6 +50,29 @@ export function HostCard({
 }: HostCardProps) {
   const [showAddModal, setShowAddModal] = useState(false);
   const runningCount = host.instances.filter((i) => i.status === 'running').length;
+
+  // Compute backend type counts
+  const backendCounts = useMemo(() => {
+    const counts: Record<BackendType, { total: number; running: number }> = {
+      llamacpp: { total: 0, running: 0 },
+      huggingface_causal: { total: 0, running: 0 },
+      huggingface_classification: { total: 0, running: 0 },
+    };
+
+    for (const instance of host.instances) {
+      const bt = getBackendType(instance.config);
+      counts[bt].total++;
+      if (instance.status === 'running') {
+        counts[bt].running++;
+      }
+    }
+
+    return counts;
+  }, [host.instances]);
+
+  // Filter backends with instances
+  const activeBackends = (Object.entries(backendCounts) as [BackendType, { total: number; running: number }][])
+    .filter(([, { total }]) => total > 0);
 
   return (
     <>
@@ -69,10 +105,33 @@ export function HostCard({
             </button>
           </div>
         </div>
+        
         <div className="mt-3 flex items-center justify-between text-sm text-nord-4">
-          <span>
-            {runningCount} / {host.instances.length} instances running
-          </span>
+          <div className="flex items-center gap-4">
+            <span>
+              {runningCount} / {host.instances.length} instances running
+            </span>
+            {/* Backend type summary pills */}
+            {activeBackends.length > 0 && (
+              <div className="flex items-center gap-2">
+                {activeBackends.map(([bt, { total, running }]) => (
+                  <span
+                    key={bt}
+                    className={cn(
+                      'px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1',
+                      bt === 'llamacpp' && 'bg-nord-10 bg-opacity-30 text-nord-8',
+                      bt === 'huggingface_causal' && 'bg-nord-14 bg-opacity-30 text-nord-14',
+                      bt === 'huggingface_classification' && 'bg-nord-13 bg-opacity-30 text-nord-13'
+                    )}
+                    title={`${bt === 'llamacpp' ? 'llama.cpp' : bt === 'huggingface_causal' ? 'HuggingFace Causal' : 'HuggingFace Classification'}: ${running}/${total}`}
+                  >
+                    <BackendIcon backendType={bt} />
+                    <span>{running}/{total}</span>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             {host.last_seen && <span>Last seen: {formatDate(host.last_seen)}</span>}
             <button
@@ -147,4 +206,3 @@ export function HostCard({
     </>
   );
 }
-

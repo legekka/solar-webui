@@ -1,6 +1,6 @@
 # Solar WebUI
 
-A modern React dashboard for managing distributed llama.cpp deployments through solar-host and solar-control.
+A modern React dashboard for managing distributed AI model deployments through solar-host and solar-control. Supports multiple backend types including llama.cpp and HuggingFace models.
 
 ## Preview
 
@@ -10,19 +10,29 @@ Watch your API requests flow through the system in real-time with an interactive
 ![Live Routing Graph](preview_live_routing.png)
 
 ### Dashboard & Instance Management
-Manage all your hosts and llama.cpp instances from a beautiful, unified interface.
+Manage all your hosts and model instances from a beautiful, unified interface.
 
 ![Dashboard View](preview_dashboard.png)
 
 ## Features
 
+- **Multi-backend support** - Manage llama.cpp, HuggingFace Causal LM, and HuggingFace Classification models
 - **Real-time routing visualization** - Interactive network graph showing API request flow
-- **Dashboard view** - Manage all solar-hosts and llama.cpp instances
+- **Dashboard view** - Manage all solar-hosts and model instances
 - **Live log streaming** - Real-time WebSocket log viewer for each instance
 - **Instance management** - Start, stop, restart, create, edit, and delete instances
 - **Host management** - Add, remove, and monitor solar-host connections
+- **Backend-aware UI** - Visual distinction between backend types with icons and colors
 - **Nord dark theme** - Beautiful arctic-inspired color scheme
 - **Modern UI** - Built with React, TypeScript, Vite, and Tailwind CSS
+
+## Supported Backend Types
+
+| Backend | Icon | Description |
+|---------|------|-------------|
+| **llama.cpp** | 🔵 CPU | GGUF models via llama-server |
+| **HuggingFace Causal** | 🟢 Brain | Text generation models (AutoModelForCausalLM) |
+| **HuggingFace Classification** | 🟡 Tags | Sequence classification models (AutoModelForSequenceClassification) |
 
 ## Installation
 
@@ -115,16 +125,16 @@ src/
 ├── index.css                   # Global styles with Nord theme
 ├── api/
 │   ├── client.ts               # Axios client configuration
-│   └── types.ts                # TypeScript type definitions
+│   └── types.ts                # TypeScript type definitions (multi-backend)
 ├── components/
 │   ├── RoutingGraph.tsx        # Real-time routing visualization
 │   ├── Dashboard.tsx           # Hosts & instances dashboard
-│   ├── HostCard.tsx            # Host display card
-│   ├── InstanceCard.tsx        # Instance display card
+│   ├── HostCard.tsx            # Host display card with backend summary
+│   ├── InstanceCard.tsx        # Instance display card (backend-aware)
 │   ├── LogViewer.tsx           # Real-time log viewer modal
 │   ├── AddHostModal.tsx        # Add host modal
-│   ├── AddInstanceModal.tsx    # Create instance modal
-│   └── EditInstanceModal.tsx   # Edit instance modal
+│   ├── AddInstanceModal.tsx    # Create instance modal (multi-backend)
+│   └── EditInstanceModal.tsx   # Edit instance modal (backend-aware)
 ├── hooks/
 │   ├── useWebSocket.ts         # WebSocket management hook
 │   ├── useInstances.ts         # Instance data management hook
@@ -139,9 +149,34 @@ src/
 1. **Configure** `SOLAR_CONTROL_URL` and `SOLAR_CONTROL_API_KEY` in your environment
 2. **Navigate** to the Routing page (default view) to monitor request flow
 3. **Add Hosts** through the "Hosts & Instances" page
-4. **Manage Instances** - Create, start, stop, edit, or delete llama-server instances
-5. **View Logs** - Click the log icon on any instance for real-time output
-6. **Monitor Performance** - Watch the routing graph to see load distribution
+4. **Create Instances** - Select backend type (llama.cpp, HuggingFace Causal, or Classification)
+5. **Manage Instances** - Start, stop, edit, or delete model instances
+6. **View Logs** - Click the log icon on any instance for real-time output
+7. **Monitor Performance** - Watch the routing graph to see load distribution
+
+## Creating Instances
+
+### llama.cpp Instance
+- **Model Path**: Path to GGUF model file
+- **Alias**: Model identifier for API routing
+- **GPU Layers, Context Size, Threads**: Hardware configuration
+- **Sampling Parameters**: Temperature, Top-P, Top-K, Min-P
+
+### HuggingFace Causal LM Instance
+- **Model ID**: HuggingFace model ID or local path
+- **Alias**: Model identifier for API routing
+- **Device**: `auto`, `cuda`, `mps`, or `cpu`
+- **Dtype**: `auto`, `float16`, `bfloat16`, or `float32`
+- **Max Length**: Maximum sequence length
+- **Flash Attention**: Enable for faster inference on compatible GPUs
+
+### HuggingFace Classification Instance
+- **Model ID**: HuggingFace model ID or local path
+- **Alias**: Model identifier for API routing
+- **Device**: `auto`, `cuda`, `mps`, or `cpu`
+- **Dtype**: `auto`, `float16`, `bfloat16`, or `float32`
+- **Max Length**: Maximum sequence length
+- **Labels**: Optional custom label names
 
 ## Technology Stack
 
@@ -153,4 +188,3 @@ src/
 - **Axios** - HTTP client for API communication
 - **Lucide Icons** - Beautiful icon library
 - **Zustand** - Lightweight state management
-

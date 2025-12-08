@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { X, Cpu, Brain, Tags } from 'lucide-react';
+import { X, Cpu, Brain, Tags, Binary } from 'lucide-react';
 import { 
   InstanceConfig, 
   BackendType, 
   LlamaCppConfig, 
   HuggingFaceCausalConfig, 
   HuggingFaceClassificationConfig,
+  HuggingFaceEmbeddingConfig,
   getBackendLabel 
 } from '@/api/types';
 
@@ -41,6 +42,12 @@ const BACKEND_OPTIONS: BackendOption[] = [
     label: 'HuggingFace Classifier', 
     icon: Tags,
     description: 'Sequence classification models'
+  },
+  { 
+    value: 'huggingface_embedding', 
+    label: 'HuggingFace Embedding', 
+    icon: Binary,
+    description: 'Embedding models (last hidden state)'
   },
 ];
 
@@ -95,6 +102,18 @@ const getDefaultConfig = (backendType: BackendType): Partial<InstanceConfig> => 
         labels: [],
         trust_remote_code: false,
       } as Partial<HuggingFaceClassificationConfig>;
+    case 'huggingface_embedding':
+      return {
+        ...base,
+        backend_type: 'huggingface_embedding',
+        model_id: '',
+        alias: '',
+        device: 'auto',
+        dtype: 'auto',
+        max_length: 512,
+        normalize_embeddings: true,
+        trust_remote_code: false,
+      } as Partial<HuggingFaceEmbeddingConfig>;
     default:
       return base;
   }
@@ -512,6 +531,28 @@ export function AddInstanceModal({ hostId, hostName, onClose, onCreate }: AddIns
                       <p className="text-xs text-nord-4 mt-1">
                         Comma-separated list of label names. Leave empty to use model defaults.
                       </p>
+                    </div>
+                  )}
+
+                  {/* Embedding-specific: Normalize Embeddings */}
+                  {backendType === 'huggingface_embedding' && (
+                    <div className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        id="normalize_embeddings"
+                        name="normalize_embeddings"
+                        checked={!!(formData as Partial<HuggingFaceEmbeddingConfig>).normalize_embeddings}
+                        onChange={handleChange}
+                        className="h-4 w-4 mt-0.5 rounded border-nord-3 bg-nord-1 text-nord-10 focus:ring-nord-10"
+                      />
+                      <div>
+                        <label htmlFor="normalize_embeddings" className="block text-sm font-medium text-nord-4">
+                          Normalize Embeddings
+                        </label>
+                        <p className="text-xs text-nord-4">
+                          L2 normalize output embedding vectors
+                        </p>
+                      </div>
                     </div>
                   )}
 

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Play, Square, RotateCw, FileText, Trash2, Edit, Cpu, Brain, Tags } from 'lucide-react';
+import { Play, Square, RotateCw, FileText, Trash2, Edit, Cpu, Brain, Tags, Binary } from 'lucide-react';
 import { 
   Instance, 
   InstanceConfig, 
@@ -9,9 +9,11 @@ import {
   isLlamaCppConfig,
   isHuggingFaceCausalConfig,
   isHuggingFaceClassificationConfig,
+  isHuggingFaceEmbeddingConfig,
   LlamaCppConfig,
   HuggingFaceCausalConfig,
   HuggingFaceClassificationConfig,
+  HuggingFaceEmbeddingConfig,
   BackendType,
 } from '@/api/types';
 import { cn, getStatusColor, formatUptime } from '@/lib/utils';
@@ -37,6 +39,8 @@ const BackendIcon = ({ backendType }: { backendType: BackendType }) => {
       return <Brain size={14} />;
     case 'huggingface_classification':
       return <Tags size={14} />;
+    case 'huggingface_embedding':
+      return <Binary size={14} />;
     default:
       return <Cpu size={14} />;
   }
@@ -107,7 +111,7 @@ export function InstanceCard({
     if (isLlamaCppConfig(instance.config)) {
       return (instance.config as LlamaCppConfig).model;
     }
-    return (instance.config as HuggingFaceCausalConfig | HuggingFaceClassificationConfig).model_id;
+    return (instance.config as HuggingFaceCausalConfig | HuggingFaceClassificationConfig | HuggingFaceEmbeddingConfig).model_id;
   };
 
   // Get backend-specific details
@@ -168,6 +172,30 @@ export function InstanceCard({
               </span>
             </div>
           )}
+        </>
+      );
+    }
+
+    if (isHuggingFaceEmbeddingConfig(instance.config)) {
+      const config = instance.config as HuggingFaceEmbeddingConfig;
+      return (
+        <>
+          <div className="flex justify-between">
+            <span>Max Length:</span>
+            <span className="font-mono text-nord-8">{config.max_length.toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Device:</span>
+            <span className="font-mono text-nord-8">{config.device}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Dtype:</span>
+            <span className="font-mono text-nord-8">{config.dtype}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Normalize:</span>
+            <span className="font-mono text-nord-8">{config.normalize_embeddings ? 'Yes' : 'No'}</span>
+          </div>
         </>
       );
     }

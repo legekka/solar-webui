@@ -16,7 +16,7 @@ Manage all your hosts and model instances from a beautiful, unified interface.
 
 ## Features
 
-- **Multi-backend support** - Manage llama.cpp, HuggingFace Causal LM, and HuggingFace Classification models
+- **Multi-backend support** - Manage llama.cpp, HuggingFace Causal LM, Classification, and Embedding models
 - **Real-time routing visualization** - Interactive network graph showing API request flow
 - **Dashboard view** - Manage all solar-hosts and model instances
 - **Live log streaming** - Real-time WebSocket log viewer for each instance
@@ -33,6 +33,7 @@ Manage all your hosts and model instances from a beautiful, unified interface.
 | **llama.cpp** | 🔵 CPU | GGUF models via llama-server |
 | **HuggingFace Causal** | 🟢 Brain | Text generation models (AutoModelForCausalLM) |
 | **HuggingFace Classification** | 🟡 Tags | Sequence classification models (AutoModelForSequenceClassification) |
+| **HuggingFace Embedding** | 🟣 Binary | Embedding models using last hidden state (AutoModel) |
 
 ## Installation
 
@@ -177,6 +178,14 @@ src/
 - **Dtype**: `auto`, `float16`, `bfloat16`, or `float32`
 - **Max Length**: Maximum sequence length
 - **Labels**: Optional custom label names
+
+### HuggingFace Embedding Instance
+- **Model ID**: HuggingFace model ID or local path (e.g., `sentence-transformers/all-MiniLM-L6-v2`)
+- **Alias**: Model identifier for API routing
+- **Device**: `auto`, `cuda`, `mps`, or `cpu`
+- **Dtype**: `auto`, `float16`, `bfloat16`, or `float32`
+- **Max Length**: Maximum sequence length
+- **Normalize Embeddings**: L2 normalize output vectors (recommended for similarity search)
 
 ## Technology Stack
 

@@ -139,12 +139,29 @@ class SolarClient {
     return response.data;
   }
 
-  getInstanceStateWebSocketUrl(hostId: string, instanceId: string): string {
-    return this.buildWebSocketUrl(`/ws/instances/${hostId}/${instanceId}/state`);
+  /**
+   * Get the unified event stream WebSocket URL.
+   * WebSocket 2.0: Single connection for all events.
+   */
+  getEventStreamWebSocketUrl(): string {
+    return this.buildWebSocketUrl('/ws/events');
   }
 
+  /**
+   * Get a WebSocket URL for a specific path on solar-control.
+   */
   getControlWebSocketUrl(path: string): string {
     return this.buildWebSocketUrl(path);
+  }
+
+  /**
+   * @deprecated Use getEventStreamWebSocketUrl() instead.
+   * Instance state is now streamed through the unified event stream.
+   */
+  getInstanceStateWebSocketUrl(hostId: string, instanceId: string): string {
+    // Legacy: return old proxy URL for backward compatibility
+    // New code should use EventStreamContext instead
+    return this.buildWebSocketUrl(`/ws/instances/${hostId}/${instanceId}/state`);
   }
 
   // Gateway monitoring
@@ -197,8 +214,13 @@ class SolarClient {
     return response.data;
   }
 
-  // WebSocket URL for logs
+  /**
+   * @deprecated Logs are now streamed through the unified event stream.
+   * Use EventStreamContext.getInstanceLogs() instead.
+   */
   getLogWebSocketUrl(hostId: string, instanceId: string): string {
+    // Legacy: return old proxy URL for backward compatibility
+    // New code should use EventStreamContext instead
     return this.buildWebSocketUrl(`/ws/logs/${hostId}/${instanceId}`);
   }
 

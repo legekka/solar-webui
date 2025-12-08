@@ -8,12 +8,10 @@ import { useRoutingEventsContext } from './context/RoutingEventsContext';
 
 function Navigation() {
   const location = useLocation();
-  let routingConnected = false;
-  let statusConnected = false;
+  let isConnected = false;
   try {
     const ctx = useRoutingEventsContext();
-    routingConnected = ctx.routingConnected;
-    statusConnected = ctx.statusConnected;
+    isConnected = ctx.routingConnected; // Now a single unified connection
   } catch {}
 
   return (
@@ -56,15 +54,9 @@ function Navigation() {
           <Server size={18} />
           Hosts & Instances
         </Link>
-        <div className="ml-auto flex items-center gap-4 text-xs">
-          <div className="flex items-center gap-2">
-            <span className={routingConnected ? 'text-nord-14' : 'text-nord-11'}>●</span>
-            <span className="text-nord-4">Routing WS</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className={statusConnected ? 'text-nord-14' : 'text-nord-11'}>●</span>
-            <span className="text-nord-4">Status WS</span>
-          </div>
+        <div className="ml-auto flex items-center gap-2 text-xs">
+          <span className={isConnected ? 'text-nord-14' : 'text-nord-11'}>●</span>
+          <span className="text-nord-4">Event Stream</span>
         </div>
       </div>
     </nav>

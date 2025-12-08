@@ -4,7 +4,7 @@ export type InstanceStatus = 'stopped' | 'starting' | 'running' | 'failed' | 'st
 
 export type HostStatus = 'online' | 'offline' | 'error';
 
-export type BackendType = 'llamacpp' | 'huggingface_causal' | 'huggingface_classification';
+export type BackendType = 'llamacpp' | 'huggingface_causal' | 'huggingface_classification' | 'huggingface_embedding';
 
 export interface MemoryInfo {
   used_gb: number;
@@ -59,8 +59,19 @@ export interface HuggingFaceClassificationConfig extends BaseInstanceConfig {
   trust_remote_code?: boolean;
 }
 
+// HuggingFace Embedding config
+export interface HuggingFaceEmbeddingConfig extends BaseInstanceConfig {
+  backend_type: 'huggingface_embedding';
+  model_id: string;
+  device: string;
+  dtype: string;
+  max_length: number;
+  normalize_embeddings?: boolean;
+  trust_remote_code?: boolean;
+}
+
 // Union type for all config types
-export type InstanceConfig = LlamaCppConfig | HuggingFaceCausalConfig | HuggingFaceClassificationConfig;
+export type InstanceConfig = LlamaCppConfig | HuggingFaceCausalConfig | HuggingFaceClassificationConfig | HuggingFaceEmbeddingConfig;
 
 // Helper to check backend type
 export function isLlamaCppConfig(config: InstanceConfig): config is LlamaCppConfig {
@@ -73,6 +84,10 @@ export function isHuggingFaceCausalConfig(config: InstanceConfig): config is Hug
 
 export function isHuggingFaceClassificationConfig(config: InstanceConfig): config is HuggingFaceClassificationConfig {
   return config.backend_type === 'huggingface_classification';
+}
+
+export function isHuggingFaceEmbeddingConfig(config: InstanceConfig): config is HuggingFaceEmbeddingConfig {
+  return config.backend_type === 'huggingface_embedding';
 }
 
 export function getBackendType(config: InstanceConfig): BackendType {
@@ -91,6 +106,8 @@ export function getBackendLabel(backendType: BackendType): string {
       return 'HF Causal';
     case 'huggingface_classification':
       return 'HF Classifier';
+    case 'huggingface_embedding':
+      return 'HF Embedding';
     default:
       return backendType;
   }
@@ -104,6 +121,8 @@ export function getBackendColor(backendType: BackendType): string {
       return 'bg-nord-14 text-nord-0'; // Green
     case 'huggingface_classification':
       return 'bg-nord-13 text-nord-0'; // Yellow
+    case 'huggingface_embedding':
+      return 'bg-nord-15 text-nord-6'; // Purple
     default:
       return 'bg-nord-3 text-nord-4';
   }

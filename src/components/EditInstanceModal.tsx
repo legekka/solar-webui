@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Cpu, Brain, Tags } from 'lucide-react';
+import { X, Cpu, Brain, Tags, Binary } from 'lucide-react';
 import { 
   Instance, 
   InstanceConfig, 
@@ -8,9 +8,11 @@ import {
   isLlamaCppConfig,
   isHuggingFaceCausalConfig,
   isHuggingFaceClassificationConfig,
+  isHuggingFaceEmbeddingConfig,
   LlamaCppConfig,
   HuggingFaceCausalConfig,
   HuggingFaceClassificationConfig,
+  HuggingFaceEmbeddingConfig,
   BackendType,
 } from '@/api/types';
 
@@ -32,6 +34,8 @@ const BackendIcon = ({ backendType }: { backendType: BackendType }) => {
       return <Brain size={18} className="text-nord-14" />;
     case 'huggingface_classification':
       return <Tags size={18} className="text-nord-13" />;
+    case 'huggingface_embedding':
+      return <Binary size={18} className="text-nord-15" />;
     default:
       return <Cpu size={18} className="text-nord-4" />;
   }
@@ -432,6 +436,28 @@ export function EditInstanceModal({ instance, hostId, onClose, onUpdate }: EditI
                     <p className="text-xs text-nord-4 mt-1">
                       Comma-separated list of label names. Leave empty to use model defaults.
                     </p>
+                  </div>
+                )}
+
+                {/* Embedding-specific: Normalize Embeddings */}
+                {isHuggingFaceEmbeddingConfig(formData) && (
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      id="normalize_embeddings"
+                      name="normalize_embeddings"
+                      checked={!!(formData as HuggingFaceEmbeddingConfig).normalize_embeddings}
+                      onChange={handleChange}
+                      className="h-4 w-4 mt-0.5 rounded border-nord-3 bg-nord-1 text-nord-10 focus:ring-nord-10"
+                    />
+                    <div>
+                      <label htmlFor="normalize_embeddings" className="block text-sm font-medium text-nord-4">
+                        Normalize Embeddings
+                      </label>
+                      <p className="text-xs text-nord-4">
+                        L2 normalize output embedding vectors
+                      </p>
+                    </div>
                   </div>
                 )}
 

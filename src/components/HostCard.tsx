@@ -3,7 +3,7 @@ import { Instance, InstanceConfig, MemoryInfo, getBackendType, BackendType } fro
 import { cn, getStatusColor, formatDate, getMemoryColor, formatMemoryUsage } from '@/lib/utils';
 import { InstanceCard } from './InstanceCard';
 import { AddInstanceModal } from './AddInstanceModal';
-import { Server, Trash2, Plus, Cpu, Brain, Tags } from 'lucide-react';
+import { Server, Trash2, Plus, Cpu, Brain, Tags, Binary } from 'lucide-react';
 
 interface HostCardProps {
   host: {
@@ -33,6 +33,8 @@ const BackendIcon = ({ backendType, size = 14 }: { backendType: BackendType; siz
       return <Brain size={size} />;
     case 'huggingface_classification':
       return <Tags size={size} />;
+    case 'huggingface_embedding':
+      return <Binary size={size} />;
     default:
       return <Cpu size={size} />;
   }
@@ -57,6 +59,7 @@ export function HostCard({
       llamacpp: { total: 0, running: 0 },
       huggingface_causal: { total: 0, running: 0 },
       huggingface_classification: { total: 0, running: 0 },
+      huggingface_embedding: { total: 0, running: 0 },
     };
 
     for (const instance of host.instances) {
@@ -121,9 +124,10 @@ export function HostCard({
                       'px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1',
                       bt === 'llamacpp' && 'bg-nord-10 bg-opacity-30 text-nord-8',
                       bt === 'huggingface_causal' && 'bg-nord-14 bg-opacity-30 text-nord-14',
-                      bt === 'huggingface_classification' && 'bg-nord-13 bg-opacity-30 text-nord-13'
+                      bt === 'huggingface_classification' && 'bg-nord-13 bg-opacity-30 text-nord-13',
+                      bt === 'huggingface_embedding' && 'bg-nord-15 bg-opacity-30 text-nord-15'
                     )}
-                    title={`${bt === 'llamacpp' ? 'llama.cpp' : bt === 'huggingface_causal' ? 'HuggingFace Causal' : 'HuggingFace Classification'}: ${running}/${total}`}
+                    title={`${bt === 'llamacpp' ? 'llama.cpp' : bt === 'huggingface_causal' ? 'HuggingFace Causal' : bt === 'huggingface_classification' ? 'HuggingFace Classification' : 'HuggingFace Embedding'}: ${running}/${total}`}
                   >
                     <BackendIcon backendType={bt} />
                     <span>{running}/{total}</span>

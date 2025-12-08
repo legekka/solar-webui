@@ -8,12 +8,14 @@
  * - log: Instance log messages from hosts
  * - instance_state: Instance runtime state updates from hosts
  * - request_start, request_routed, request_success, request_error: Routing events
+ * - gateway_request: Completed request summaries (filterable)
+ * - filter_status: Current filter configuration acknowledgement
  * - keepalive: Connection keepalive
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import solarClient from '@/api/client';
-import { MemoryInfo, InstanceRuntimeState, LogMessage } from '@/api/types';
+import { MemoryInfo, LogMessage } from '@/api/types';
 
 // Event type definitions
 export type WSMessageType =
@@ -27,6 +29,8 @@ export type WSMessageType =
   | 'request_success'
   | 'request_error'
   | 'request_reroute'
+  | 'gateway_request'
+  | 'filter_status'
   | 'keepalive';
 
 export interface HostStatusData {
@@ -82,6 +86,40 @@ export interface RoutingEventData {
   decode_tps?: number;
 }
 
+// Gateway request summary (completed request)
+export interface GatewayRequestSummary {
+  request_id: string;
+  request_type?: string; // chat, completion, embedding, classification, etc.
+  status: 'success' | 'error' | 'missed';
+  model?: string;
+  resolved_model?: string;
+  endpoint?: string;
+  client_ip?: string;
+  stream?: boolean;
+  attempts: number;
+  start_timestamp?: string;
+  end_timestamp: string;
+  duration_s?: number;
+  host_id?: string;
+  host_name?: string;
+  instance_id?: string;
+  instance_url?: string;
+  error_message?: string;
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
+  decode_tps?: number;
+  decode_ms_per_token?: number;
+}
+
+// Gateway filter configuration
+export interface GatewayFilter {
+  status: string; // all, success, error, missed
+  request_type: string; // all, chat, completion, embedding, classification
+  model?: string | null;
+  host_id?: string | null;
+}
+
 export interface WSEvent {
   type: WSMessageType;
   host_id?: string;
@@ -89,6 +127,7 @@ export interface WSEvent {
   instance_id?: string;
   timestamp?: string;
   data?: any;
+  filter?: GatewayFilter;
 }
 
 export interface RequestState {
@@ -116,7 +155,16 @@ export interface EventHandlers {
   onLog?: (hostId: string, instanceId: string, data: LogEventData) => void;
   onInstanceState?: (hostId: string, instanceId: string, data: InstanceStateData) => void;
   onRoutingEvent?: (type: WSMessageType, data: RoutingEventData) => void;
+  onGatewayRequest?: (data: GatewayRequestSummary) => void;
+  onFilterStatus?: (filter: GatewayFilter) => void;
 }
+
+const DEFAULT_FILTER: GatewayFilter = {
+  status: 'all',
+  request_type: 'all',
+  model: null,
+  host_id: null,
+};
 
 export function useEventStream(handlers: EventHandlers = {}) {
   const [isConnected, setIsConnected] = useState(false);
@@ -124,6 +172,8 @@ export function useEventStream(handlers: EventHandlers = {}) {
   const [requests, setRequests] = useState<Map<string, RequestState>>(new Map());
   const [instanceStates, setInstanceStates] = useState<Map<string, InstanceStateData>>(new Map());
   const [logs, setLogs] = useState<Map<string, LogMessage[]>>(new Map());
+  const [gatewayRequests, setGatewayRequests] = useState<GatewayRequestSummary[]>([]);
+  const [gatewayFilter, setGatewayFilter] = useState<GatewayFilter>(DEFAULT_FILTER);
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
@@ -232,11 +282,12 @@ export function useEventStream(handlers: EventHandlers = {}) {
 
       case 'host_health':
         if (event.host_id && event.data) {
+          const hostId = event.host_id;
           setHosts((prev) => {
             const newMap = new Map(prev);
-            const existing = newMap.get(event.host_id);
+            const existing = newMap.get(hostId);
             if (existing) {
-              newMap.set(event.host_id, {
+              newMap.set(hostId, {
                 ...existing,
                 memory: event.data.memory,
               });
@@ -305,11 +356,57 @@ export function useEventStream(handlers: EventHandlers = {}) {
         h.onRoutingEvent?.(event.type, event.data);
         break;
 
+      case 'gateway_request':
+        // Completed request summary
+        if (event.data) {
+          const summary: GatewayRequestSummary = event.data;
+          setGatewayRequests((prev) => {
+            // Add to front, keep last 500
+            const updated = [summary, ...prev].slice(0, 500);
+            return updated;
+          });
+          h.onGatewayRequest?.(summary);
+        }
+        break;
+
+      case 'filter_status':
+        // Filter configuration acknowledgement
+        if (event.filter) {
+          setGatewayFilter(event.filter);
+          h.onFilterStatus?.(event.filter);
+        }
+        break;
+
       case 'keepalive':
         // Ignore keepalives
         break;
     }
   }, [updateRequest, removeRequest]);
+
+  // Send filter update to server
+  // Using functional update to avoid dependency on gatewayFilter (prevents infinite re-render loop)
+  const setFilter = useCallback((filter: Partial<GatewayFilter>) => {
+    setGatewayFilter((prevFilter) => {
+      const newFilter: GatewayFilter = {
+        ...prevFilter,
+        ...filter,
+      };
+      
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({
+          type: 'set_filter',
+          filter: newFilter,
+        }));
+      }
+      
+      return newFilter;
+    });
+  }, []);
+
+  // Clear gateway requests (when filter changes)
+  const clearGatewayRequests = useCallback(() => {
+    setGatewayRequests([]);
+  }, []);
 
   const connect = useCallback(() => {
     const wsUrl = solarClient.getControlWebSocketUrl('/ws/events');
@@ -413,10 +510,13 @@ export function useEventStream(handlers: EventHandlers = {}) {
     requests,
     instanceStates,
     logs,
+    gatewayRequests,
+    gatewayFilter,
     getInstanceLogs,
     getInstanceState,
     clearInstanceLogs,
     removeRequest,
+    setFilter,
+    clearGatewayRequests,
   };
 }
-

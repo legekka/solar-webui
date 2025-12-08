@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import solarClient from '@/api/client';
 import { Host, Instance } from '@/api/types';
 import { useRoutingEventsContext } from '@/context/RoutingEventsContext';
@@ -7,11 +7,12 @@ interface HostWithInstances extends Host {
   instances: Instance[];
 }
 
-export function useInstances(refreshInterval = 10000) {
+export function useInstances(refreshInterval = 30000) {
+  // Increased default to 30s since WebSocket handles real-time updates
   const [hosts, setHosts] = useState<HostWithInstances[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { hostStatuses } = useRoutingEventsContext();
+  const { hostStatuses, routingConnected } = useRoutingEventsContext();
 
   const fetchData = useCallback(async () => {
     try {
@@ -42,18 +43,23 @@ export function useInstances(refreshInterval = 10000) {
     }
   }, []);
 
+  // Initial fetch
   useEffect(() => {
     fetchData();
-    
-    // Set up auto-refresh
-    const interval = setInterval(fetchData, refreshInterval);
-    
-    return () => clearInterval(interval);
-  }, [fetchData, refreshInterval]);
+  }, [fetchData]);
+
+  // Auto-refresh at a slower rate (WebSocket handles real-time updates)
+  useEffect(() => {
+    // If connected via WebSocket, poll less frequently
+    const interval = routingConnected ? refreshInterval : 10000;
+    const timer = setInterval(fetchData, interval);
+    return () => clearInterval(timer);
+  }, [fetchData, refreshInterval, routingConnected]);
 
   const startInstance = useCallback(async (hostId: string, instanceId: string) => {
     try {
       await solarClient.startInstance(hostId, instanceId);
+      // Immediate refresh after action
       await fetchData();
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Failed to start instance');
@@ -78,20 +84,23 @@ export function useInstances(refreshInterval = 10000) {
     }
   }, [fetchData]);
 
-  // Apply global status updates from context
-  useEffect(() => {
-    if (!hostStatuses) return;
-    setHosts((prevHosts) =>
-      prevHosts.map((host) => {
-        const s = hostStatuses.get(host.id);
-        if (!s) return host;
-        return { ...host, status: s.status as any, memory: s.memory || host.memory };
-      })
-    );
-  }, [hostStatuses]);
+  // Merge WebSocket status updates into hosts data
+  const mergedHosts = useMemo(() => {
+    if (!hostStatuses || hostStatuses.size === 0) return hosts;
+    
+    return hosts.map((host) => {
+      const wsStatus = hostStatuses.get(host.id);
+      if (!wsStatus) return host;
+      return {
+        ...host,
+        status: wsStatus.status as any,
+        memory: wsStatus.memory || host.memory,
+      };
+    });
+  }, [hosts, hostStatuses]);
 
   return {
-    hosts,
+    hosts: mergedHosts,
     loading,
     error,
     refresh: fetchData,
@@ -100,4 +109,3 @@ export function useInstances(refreshInterval = 10000) {
     restartInstance,
   };
 }
-

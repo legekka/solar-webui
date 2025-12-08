@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { useWebSocket } from '@/hooks/useWebSocket';
+import { X, Pause, Play, Download } from 'lucide-react';
+import { useEventStreamContext } from '@/context/EventStreamContext';
 import solarClient from '@/api/client';
-import { X, Pause, Play } from 'lucide-react';
+import { LogMessage } from '@/api/types';
 
 interface LogViewerProps {
   hostId: string;
@@ -13,13 +14,70 @@ interface LogViewerProps {
 export function LogViewer({ hostId, instanceId, alias, onClose }: LogViewerProps) {
   const logContainerRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
+  const [historicalLogs, setHistoricalLogs] = useState<LogMessage[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+
+  // Use the unified event stream for new logs
+  const { isConnected, getInstanceLogs, clearInstanceLogs } = useEventStreamContext();
+  const streamLogs = getInstanceLogs(hostId, instanceId);
+
+  // Merge historical logs with stream logs, avoiding duplicates by seq number
+  const messages = (() => {
+    const seenSeqs = new Set<number>();
+    const merged: LogMessage[] = [];
+
+    // Add historical logs first
+    for (const log of historicalLogs) {
+      if (!seenSeqs.has(log.seq)) {
+        seenSeqs.add(log.seq);
+        merged.push(log);
+      }
+    }
+
+    // Add stream logs (newer ones)
+    for (const log of streamLogs) {
+      if (!seenSeqs.has(log.seq)) {
+        seenSeqs.add(log.seq);
+        merged.push(log);
+      }
+    }
+
+    // Sort by sequence number
+    return merged.sort((a, b) => a.seq - b.seq);
+  })();
+
+  // Fetch historical logs on mount
+  useEffect(() => {
+    let cancelled = false;
   
-  // Build WebSocket URL via middleware
-  const wsUrl = solarClient.getLogWebSocketUrl(hostId, instanceId);
-  
-  const { isConnected, messages } = useWebSocket({
-    url: wsUrl,
-  });
+    const fetchHistory = async () => {
+      setLoadingHistory(true);
+      setHistoryError(null);
+
+      try {
+        const logs = await solarClient.getInstanceLogs(hostId, instanceId);
+        if (!cancelled) {
+          setHistoricalLogs(logs);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Failed to fetch historical logs:', err);
+          setHistoryError('Failed to load historical logs');
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingHistory(false);
+        }
+      }
+    };
+
+    fetchHistory();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hostId, instanceId]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -27,6 +85,22 @@ export function LogViewer({ hostId, instanceId, alias, onClose }: LogViewerProps
       logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
     }
   }, [messages, autoScroll]);
+
+  const handleClear = () => {
+    setHistoricalLogs([]);
+    clearInstanceLogs(hostId, instanceId);
+  };
+
+  const handleDownload = () => {
+    const content = messages.map((m) => `[${m.timestamp}] ${m.line}`).join('\n');
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${alias}-logs.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
@@ -36,14 +110,32 @@ export function LogViewer({ hostId, instanceId, alias, onClose }: LogViewerProps
           <div>
             <h2 className="text-lg font-semibold text-nord-6">{alias} - Logs</h2>
             <p className="text-sm text-nord-4">
-              {isConnected ? (
-                <span className="text-nord-14">● Connected</span>
+              {loadingHistory ? (
+                <span className="text-nord-13">Loading history...</span>
+              ) : isConnected ? (
+                <span className="text-nord-14">● Connected (Event Stream)</span>
               ) : (
                 <span className="text-nord-11">● Disconnected</span>
               )}
+              {historyError && <span className="text-nord-11 ml-2">({historyError})</span>}
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={handleDownload}
+              disabled={messages.length === 0}
+              className="px-3 py-1 text-xs bg-nord-3 hover:bg-nord-2 rounded transition-colors text-nord-4 disabled:opacity-50"
+              title="Download logs"
+            >
+              <Download size={14} />
+            </button>
+            <button
+              onClick={handleClear}
+              className="px-3 py-1 text-xs bg-nord-3 hover:bg-nord-2 rounded transition-colors text-nord-4"
+              title="Clear logs"
+            >
+              Clear
+            </button>
             <button
               onClick={() => setAutoScroll(!autoScroll)}
               className="p-2 hover:bg-nord-2 rounded transition-colors text-nord-4"
@@ -65,8 +157,14 @@ export function LogViewer({ hostId, instanceId, alias, onClose }: LogViewerProps
           ref={logContainerRef}
           className="flex-1 overflow-auto p-4 bg-nord-0 text-nord-6 font-mono text-sm"
         >
-          {messages.length === 0 ? (
-            <div className="text-nord-3">Waiting for logs...</div>
+          {loadingHistory ? (
+            <div className="text-nord-3">Loading historical logs...</div>
+          ) : messages.length === 0 ? (
+            <div className="text-nord-3">
+              {isConnected
+                ? 'No logs yet. Logs appear when the instance produces output.'
+                : 'Connecting to event stream...'}
+            </div>
           ) : (
             messages.map((msg) => (
               <div key={msg.seq} className="whitespace-pre">
@@ -84,4 +182,3 @@ export function LogViewer({ hostId, instanceId, alias, onClose }: LogViewerProps
     </div>
   );
 }
-

@@ -5,7 +5,7 @@
  * instead of a separate WebSocket connection.
  */
 
-import { useEffect, useCallback } from 'react';
+import { useEffect } from 'react';
 import { MemoryInfo } from '@/api/types';
 
 interface HostStatusUpdate {
@@ -17,28 +17,29 @@ interface HostStatusUpdate {
 }
 
 // Try to use EventStreamContext if available
-let useEventStreamContext: () => {
+let useEventStreamContextFn: (() => {
   hosts: Map<string, any>;
   isConnected: boolean;
-} | null = null;
+}) | null = null;
 
 try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const context = require('@/context/EventStreamContext');
-  useEventStreamContext = context.useEventStreamContext;
+  useEventStreamContextFn = context.useEventStreamContext;
 } catch {
   // Context not available
 }
 
 export function useHostStatus(
-  onStatusUpdate: (update: HostStatusUpdate) => void,
+  _onStatusUpdate: (update: HostStatusUpdate) => void,
   onInitialStatus: (statuses: HostStatusUpdate[]) => void
 ) {
   // Try to use EventStreamContext
   useEffect(() => {
-    if (!useEventStreamContext) return;
+    if (!useEventStreamContextFn) return;
 
     try {
-      const ctx = useEventStreamContext();
+      const ctx = useEventStreamContextFn();
 
       // Convert hosts map to array and call onInitialStatus
       if (ctx.hosts.size > 0) {

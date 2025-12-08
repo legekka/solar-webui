@@ -1,70 +1,52 @@
 /**
  * useInstanceState - Hook for getting instance runtime state
  *
- * WebSocket 2.0: This hook now uses the unified EventStreamContext
- * instead of a direct WebSocket connection to the proxy endpoint.
+ * WebSocket 2.0: This hook uses the unified EventStreamContext.
+ * Falls back to REST polling only when EventStreamContext is not available.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import solarClient from '@/api/client';
 import { InstanceRuntimeState } from '@/api/types';
-
-// Try to use EventStreamContext if available
-let useEventStreamContext: () => {
-  getInstanceState: (hostId: string, instanceId: string) => any;
-  isConnected: boolean;
-} | null = null;
-
-try {
-  // Dynamic import to avoid circular dependencies
-  const context = require('@/context/EventStreamContext');
-  useEventStreamContext = context.useEventStreamContext;
-} catch {
-  // Context not available, will fall back to REST polling
-}
+import { useEventStreamContext } from '@/context/EventStreamContext';
 
 export function useInstanceState(hostId: string, instanceId: string) {
-  const [state, setState] = useState<InstanceRuntimeState | null>(null);
-  const [connected, setConnected] = useState(false);
-
-  // Try to use EventStreamContext
-  let eventStreamState: any = null;
+  const [restState, setRestState] = useState<InstanceRuntimeState | null>(null);
+  
+  // Get state from EventStreamContext
+  let eventStreamState: any = undefined;
   let eventStreamConnected = false;
-
+  
   try {
-    if (useEventStreamContext) {
-      const ctx = useEventStreamContext();
-      eventStreamState = ctx.getInstanceState(hostId, instanceId);
-      eventStreamConnected = ctx.isConnected;
-    }
+    const ctx = useEventStreamContext();
+    eventStreamState = ctx.getInstanceState(hostId, instanceId);
+    eventStreamConnected = ctx.isConnected;
   } catch {
-    // Not inside EventStreamProvider, use fallback
+    // Not inside EventStreamProvider - will use REST polling
   }
 
-  // Update state from event stream
-  useEffect(() => {
-    if (eventStreamState) {
-      setState({
-        instance_id: instanceId,
-        busy: eventStreamState.busy || false,
-        phase: eventStreamState.phase || 'idle',
-        prefill_progress: eventStreamState.prefill_progress,
-        active_slots: eventStreamState.active_slots || 0,
-        slot_id: eventStreamState.slot_id,
-        task_id: eventStreamState.task_id,
-        prefill_prompt_tokens: eventStreamState.prefill_prompt_tokens,
-        generated_tokens: eventStreamState.generated_tokens,
-        decode_tps: eventStreamState.decode_tps,
-        decode_ms_per_token: eventStreamState.decode_ms_per_token,
-        checkpoint_index: eventStreamState.checkpoint_index,
-        checkpoint_total: eventStreamState.checkpoint_total,
-        timestamp: new Date().toISOString(),
-      });
-      setConnected(eventStreamConnected);
-    }
-  }, [eventStreamState, eventStreamConnected, instanceId]);
+  // Convert event stream state to InstanceRuntimeState format
+  const wsState = useMemo<InstanceRuntimeState | null>(() => {
+    if (!eventStreamState) return null;
+    return {
+      instance_id: instanceId,
+      busy: eventStreamState.busy || false,
+      phase: eventStreamState.phase || 'idle',
+      prefill_progress: eventStreamState.prefill_progress,
+      active_slots: eventStreamState.active_slots || 0,
+      slot_id: eventStreamState.slot_id,
+      task_id: eventStreamState.task_id,
+      prefill_prompt_tokens: eventStreamState.prefill_prompt_tokens,
+      generated_tokens: eventStreamState.generated_tokens,
+      decode_tps: eventStreamState.decode_tps,
+      decode_ms_per_token: eventStreamState.decode_ms_per_token,
+      checkpoint_index: eventStreamState.checkpoint_index,
+      checkpoint_total: eventStreamState.checkpoint_total,
+      timestamp: new Date().toISOString(),
+    };
+  }, [eventStreamState, instanceId]);
 
-  // Fetch initial state via REST
+  // Fetch initial state via REST (one-time on mount)
   useEffect(() => {
     if (!hostId || !instanceId) return;
 
@@ -72,7 +54,7 @@ export function useInstanceState(hostId: string, instanceId: string) {
     (async () => {
       try {
         const snapshot = await solarClient.getInstanceState(hostId, instanceId);
-        if (!cancelled) setState(snapshot);
+        if (!cancelled) setRestState(snapshot);
       } catch {
         // Ignore initial fetch errors
       }
@@ -83,25 +65,29 @@ export function useInstanceState(hostId: string, instanceId: string) {
     };
   }, [hostId, instanceId]);
 
-  // If not using EventStreamContext, poll periodically as fallback
+  // Only poll if NOT connected via WebSocket
   useEffect(() => {
-    if (eventStreamConnected) return; // Don't poll if WS connected
+    if (eventStreamConnected) return; // Don't poll when WS is connected
+    if (!hostId || !instanceId) return;
 
     const poll = async () => {
       try {
         const snapshot = await solarClient.getInstanceState(hostId, instanceId);
-        setState(snapshot);
+        setRestState(snapshot);
       } catch {
         // Ignore poll errors
       }
     };
 
-    const interval = setInterval(poll, 2000);
+    const interval = setInterval(poll, 5000); // Poll every 5s as fallback
     return () => clearInterval(interval);
   }, [hostId, instanceId, eventStreamConnected]);
 
+  // Prefer WebSocket state, fall back to REST state
+  const state = wsState || restState;
+
   return {
     state,
-    connected: eventStreamConnected || connected,
+    connected: eventStreamConnected,
   };
 }

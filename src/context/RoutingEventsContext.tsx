@@ -6,7 +6,7 @@
  * WebSocket architecture.
  */
 
-import { createContext, useCallback, useContext, useMemo, useState, useEffect } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState, ReactNode } from 'react';
 import { EventStreamProvider, useEventStreamContext, HostStatusData, RequestState } from './EventStreamContext';
 
 export interface RoutingEvent {
@@ -43,15 +43,10 @@ interface RoutingEventsContextValue {
 
 const RoutingEventsContext = createContext<RoutingEventsContextValue | undefined>(undefined);
 
-function RoutingEventsContextConsumer({ children }: { children: any }) {
+function RoutingEventsInner({ children }: { children: ReactNode }) {
   const eventStream = useEventStreamContext();
   const [events, setEvents] = useState<RoutingEvent[]>([]);
   const EVENTS_MAX = 2000;
-
-  // Capture error and reroute events into a ring buffer
-  useEffect(() => {
-    // This will be called through the event handlers
-  }, []);
 
   const addRecentEvents = useCallback((items: RoutingEvent[]) => {
     if (!items || items.length === 0) return;
@@ -66,20 +61,15 @@ function RoutingEventsContextConsumer({ children }: { children: any }) {
     });
   }, []);
 
-  // Convert hosts Map to legacy format
-  const hostStatuses = useMemo(() => {
-    return eventStream.hosts;
-  }, [eventStream.hosts]);
-
   const value = useMemo<RoutingEventsContextValue>(() => ({
     requests: eventStream.requests,
     removeRequest: eventStream.removeRequest,
     events,
     addRecentEvents,
     routingConnected: eventStream.isConnected,
-    statusConnected: eventStream.isConnected, // Same connection now
-    hostStatuses,
-  }), [eventStream.requests, eventStream.removeRequest, eventStream.isConnected, events, addRecentEvents, hostStatuses]);
+    statusConnected: eventStream.isConnected,
+    hostStatuses: eventStream.hosts,
+  }), [eventStream.requests, eventStream.removeRequest, eventStream.isConnected, eventStream.hosts, events, addRecentEvents]);
 
   return (
     <RoutingEventsContext.Provider value={value}>
@@ -88,27 +78,12 @@ function RoutingEventsContextConsumer({ children }: { children: any }) {
   );
 }
 
-export function RoutingEventsProvider({ children }: { children: any }) {
-  const [events, setEvents] = useState<RoutingEvent[]>([]);
-  const EVENTS_MAX = 2000;
-
-  // Handler for routing events to capture errors/reroutes
-  const handleRoutingEvent = useCallback((type: string, data: any) => {
-    if (type === 'request_error' || type === 'request_reroute') {
-      setEvents((prev) => {
-        const event: RoutingEvent = { type: type as any, data };
-        const merged = [...prev, event];
-        if (merged.length > EVENTS_MAX) return merged.slice(merged.length - EVENTS_MAX);
-        return merged;
-      });
-    }
-  }, []);
-
+export function RoutingEventsProvider({ children }: { children: ReactNode }) {
   return (
-    <EventStreamProvider handlers={{ onRoutingEvent: handleRoutingEvent }}>
-      <RoutingEventsContextConsumer>
+    <EventStreamProvider>
+      <RoutingEventsInner>
         {children}
-      </RoutingEventsContextConsumer>
+      </RoutingEventsInner>
     </EventStreamProvider>
   );
 }

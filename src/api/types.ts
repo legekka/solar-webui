@@ -226,6 +226,7 @@ export interface GatewayStats {
 
 export interface GatewayRequestSummary {
   request_id: string;
+  request_type?: string; // chat, completion, embedding, classification, etc.
   status: 'success' | 'error' | 'missed';
   model?: string;
   resolved_model?: string;

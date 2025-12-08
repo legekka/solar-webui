@@ -139,6 +139,12 @@ class SolarClient {
     return response.data;
   }
 
+  // Instance logs (via solar-control proxy)
+  async getInstanceLogs(hostId: string, instanceId: string): Promise<Array<{ seq: number; timestamp: string; line: string }>> {
+    const response = await this.client.get(`/hosts/${hostId}/instances/${instanceId}/logs`);
+    return response.data;
+  }
+
   /**
    * Get the unified event stream WebSocket URL.
    * WebSocket 2.0: Single connection for all events.
@@ -165,7 +171,7 @@ class SolarClient {
   }
 
   // Gateway monitoring
-  async getGatewayStats(params: { from?: string; to?: string }): Promise<GatewayStats> {
+  async getGatewayStats(params: { from?: string; to?: string; request_type?: string }): Promise<GatewayStats> {
     const response = await this.client.get('/gateway/stats', { params });
     return response.data as GatewayStats;
   }
@@ -174,6 +180,7 @@ class SolarClient {
     from?: string;
     to?: string;
     status?: 'all' | 'success' | 'error' | 'missed';
+    request_type?: string;
     model?: string;
     host_id?: string;
     page?: number;

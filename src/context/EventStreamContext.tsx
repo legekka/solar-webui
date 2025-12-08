@@ -5,7 +5,7 @@
  * ensuring a single WebSocket connection is shared across all components.
  */
 
-import React, { createContext, useContext, ReactNode } from 'react';
+import { createContext, useContext, ReactNode } from 'react';
 import {
   useEventStream,
   HostStatusData,
@@ -15,6 +15,8 @@ import {
   RoutingEventData,
   LogEventData,
   EventHandlers,
+  GatewayRequestSummary,
+  GatewayFilter,
 } from '@/hooks/useEventStream';
 import { LogMessage } from '@/api/types';
 
@@ -24,10 +26,14 @@ interface EventStreamContextValue {
   requests: Map<string, RequestState>;
   instanceStates: Map<string, InstanceStateData>;
   logs: Map<string, LogMessage[]>;
+  gatewayRequests: GatewayRequestSummary[];
+  gatewayFilter: GatewayFilter;
   getInstanceLogs: (hostId: string, instanceId: string) => LogMessage[];
   getInstanceState: (hostId: string, instanceId: string) => InstanceStateData | undefined;
   clearInstanceLogs: (hostId: string, instanceId: string) => void;
   removeRequest: (requestId: string) => void;
+  setFilter: (filter: Partial<GatewayFilter>) => void;
+  clearGatewayRequests: () => void;
 }
 
 const EventStreamContext = createContext<EventStreamContextValue | null>(null);
@@ -64,5 +70,6 @@ export type {
   RoutingEventData,
   LogEventData,
   EventHandlers,
+  GatewayRequestSummary,
+  GatewayFilter,
 };
-

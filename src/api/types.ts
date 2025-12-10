@@ -14,12 +14,12 @@ export interface MemoryInfo {
 }
 
 // Base config interface with common fields
+// Note: api_key is NOT part of instance config - instances always use host API key
 export interface BaseInstanceConfig {
   backend_type: BackendType;
   alias: string;
   host: string;
   port?: number;
-  api_key: string;
 }
 
 // llama.cpp specific config

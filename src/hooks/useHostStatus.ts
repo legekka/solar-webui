@@ -1,5 +1,11 @@
-import { useEffect, useCallback, useRef } from 'react';
-import solarClient from '@/api/client';
+/**
+ * useHostStatus - Hook for subscribing to host status updates
+ *
+ * WebSocket 2.0: This hook now uses the unified EventStreamContext
+ * instead of a separate WebSocket connection.
+ */
+
+import { useEffect } from 'react';
 import { MemoryInfo } from '@/api/types';
 
 interface HostStatusUpdate {
@@ -10,99 +16,47 @@ interface HostStatusUpdate {
   memory?: MemoryInfo;
 }
 
-interface StatusMessage {
-  type: 'initial_status' | 'host_status' | 'keepalive';
-  data?: HostStatusUpdate | HostStatusUpdate[];
+// Try to use EventStreamContext if available
+let useEventStreamContextFn: (() => {
+  hosts: Map<string, any>;
+  isConnected: boolean;
+}) | null = null;
+
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const context = require('@/context/EventStreamContext');
+  useEventStreamContextFn = context.useEventStreamContext;
+} catch {
+  // Context not available
 }
 
 export function useHostStatus(
-  onStatusUpdate: (update: HostStatusUpdate) => void,
+  _onStatusUpdate: (update: HostStatusUpdate) => void,
   onInitialStatus: (statuses: HostStatusUpdate[]) => void
 ) {
-  const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<number | null>(null);
-  const pingIntervalRef = useRef<number | null>(null);
-
-  const connect = useCallback(() => {
-    const wsUrl = solarClient.getControlWebSocketUrl('/ws/status');
-
-    console.log('Connecting to status WebSocket:', wsUrl);
-
-    const ws = new WebSocket(wsUrl);
-
-    ws.onopen = () => {
-      console.log('Status WebSocket connected');
-      wsRef.current = ws;
-
-      // Send ping every 20 seconds to keep connection alive
-      pingIntervalRef.current = window.setInterval(() => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send('ping');
-        }
-      }, 20000);
-    };
-
-    ws.onmessage = (event) => {
-      // Ignore plain text responses like "pong"
-      if (typeof event.data === 'string' && event.data === 'pong') {
-        return;
-      }
-
-      try {
-        const message: StatusMessage = JSON.parse(event.data);
-
-        if (message.type === 'initial_status' && Array.isArray(message.data)) {
-          console.log('Received initial status:', message.data);
-          onInitialStatus(message.data);
-        } else if (message.type === 'host_status' && message.data && !Array.isArray(message.data)) {
-          console.log('Host status update:', message.data);
-          onStatusUpdate(message.data);
-        } else if (message.type === 'keepalive') {
-          // Just a keepalive, ignore
-        }
-      } catch (error) {
-        console.error('Failed to parse status message:', error);
-      }
-    };
-
-    ws.onerror = (error) => {
-      console.error('Status WebSocket error:', error);
-    };
-
-    ws.onclose = () => {
-      console.log('Status WebSocket disconnected, reconnecting in 5s...');
-      wsRef.current = null;
-
-      // Clear ping interval
-      if (pingIntervalRef.current) {
-        clearInterval(pingIntervalRef.current);
-        pingIntervalRef.current = null;
-      }
-
-      // Attempt to reconnect after 5 seconds
-      reconnectTimeoutRef.current = window.setTimeout(() => {
-        connect();
-      }, 5000);
-    };
-
-    return ws;
-  }, [onStatusUpdate, onInitialStatus]);
-
+  // Try to use EventStreamContext
   useEffect(() => {
-    const ws = connect();
+    if (!useEventStreamContextFn) return;
 
-    return () => {
-      // Cleanup on unmount
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
+    try {
+      const ctx = useEventStreamContextFn();
+
+      // Convert hosts map to array and call onInitialStatus
+      if (ctx.hosts.size > 0) {
+        const statuses: HostStatusUpdate[] = Array.from(ctx.hosts.values()).map((h) => ({
+          host_id: h.host_id,
+          name: h.name || '',
+          status: h.status,
+          url: h.url || '',
+          memory: h.memory,
+        }));
+        onInitialStatus(statuses);
       }
-      if (pingIntervalRef.current) {
-        clearInterval(pingIntervalRef.current);
-      }
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.close();
-      }
-    };
-  }, [connect]);
+    } catch {
+      // Not inside EventStreamProvider
+    }
+  }, [onInitialStatus]);
+
+  // The event stream will call handlers automatically through the context
+  // Individual updates are handled by the EventStreamContext
 }
-

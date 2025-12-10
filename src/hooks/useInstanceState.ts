@@ -1,86 +1,93 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+/**
+ * useInstanceState - Hook for getting instance runtime state
+ *
+ * WebSocket 2.0: This hook uses the unified EventStreamContext.
+ * Falls back to REST polling only when EventStreamContext is not available.
+ */
+
+import { useEffect, useState, useMemo } from 'react';
 import solarClient from '@/api/client';
 import { InstanceRuntimeState } from '@/api/types';
+import { useEventStreamContext } from '@/context/EventStreamContext';
 
 export function useInstanceState(hostId: string, instanceId: string) {
-  const [state, setState] = useState<InstanceRuntimeState | null>(null);
-  const [connected, setConnected] = useState(false);
-  const wsRef = useRef<WebSocket | null>(null);
-  const reconnectRef = useRef<number | null>(null);
+  const [restState, setRestState] = useState<InstanceRuntimeState | null>(null);
+  
+  // Get state from EventStreamContext
+  let eventStreamState: any = undefined;
+  let eventStreamConnected = false;
+  
+  try {
+    const ctx = useEventStreamContext();
+    eventStreamState = ctx.getInstanceState(hostId, instanceId);
+    eventStreamConnected = ctx.isConnected;
+  } catch {
+    // Not inside EventStreamProvider - will use REST polling
+  }
 
-  const connect = useCallback(() => {
-    if (!hostId || !instanceId) return;
-    const wsUrl = solarClient.getInstanceStateWebSocketUrl(hostId, instanceId);
+  // Convert event stream state to InstanceRuntimeState format
+  const wsState = useMemo<InstanceRuntimeState | null>(() => {
+    if (!eventStreamState) return null;
+    return {
+      instance_id: instanceId,
+      busy: eventStreamState.busy || false,
+      phase: eventStreamState.phase || 'idle',
+      prefill_progress: eventStreamState.prefill_progress,
+      active_slots: eventStreamState.active_slots || 0,
+      slot_id: eventStreamState.slot_id,
+      task_id: eventStreamState.task_id,
+      prefill_prompt_tokens: eventStreamState.prefill_prompt_tokens,
+      generated_tokens: eventStreamState.generated_tokens,
+      decode_tps: eventStreamState.decode_tps,
+      decode_ms_per_token: eventStreamState.decode_ms_per_token,
+      checkpoint_index: eventStreamState.checkpoint_index,
+      checkpoint_total: eventStreamState.checkpoint_total,
+      timestamp: new Date().toISOString(),
+    };
+  }, [eventStreamState, instanceId]);
 
-    try {
-      const ws = new WebSocket(wsUrl);
-
-      ws.onopen = () => {
-        setConnected(true);
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const msg = JSON.parse(event.data);
-          if (typeof msg === 'object' && msg && msg.type === 'instance_state' && msg.data) {
-            const data = msg.data as InstanceRuntimeState;
-            setState(data);
-          }
-          // Ignore keepalive or other messages
-        } catch (e) {
-          // Ignore parse errors
-        }
-      };
-
-      ws.onerror = () => {
-        setConnected(false);
-      };
-
-      ws.onclose = () => {
-        setConnected(false);
-        // Reconnect after short delay
-        reconnectRef.current = window.setTimeout(() => {
-          connect();
-        }, 3000);
-      };
-
-      wsRef.current = ws;
-    } catch {
-      // Ignore errors creating WebSocket
-    }
-  }, [hostId, instanceId]);
-
+  // Fetch initial state via REST (one-time on mount)
   useEffect(() => {
-    // Initial REST snapshot
+    if (!hostId || !instanceId) return;
+
     let cancelled = false;
     (async () => {
       try {
         const snapshot = await solarClient.getInstanceState(hostId, instanceId);
-        if (!cancelled) setState(snapshot);
+        if (!cancelled) setRestState(snapshot);
       } catch {
         // Ignore initial fetch errors
       }
     })();
 
-    connect();
-
     return () => {
-      if (reconnectRef.current) {
-        clearTimeout(reconnectRef.current);
-        reconnectRef.current = null;
-      }
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-      setConnected(false);
+      cancelled = true;
     };
-  }, [connect, hostId, instanceId]);
+  }, [hostId, instanceId]);
+
+  // Only poll if NOT connected via WebSocket
+  useEffect(() => {
+    if (eventStreamConnected) return; // Don't poll when WS is connected
+    if (!hostId || !instanceId) return;
+
+    const poll = async () => {
+      try {
+        const snapshot = await solarClient.getInstanceState(hostId, instanceId);
+        setRestState(snapshot);
+      } catch {
+        // Ignore poll errors
+      }
+    };
+
+    const interval = setInterval(poll, 5000); // Poll every 5s as fallback
+    return () => clearInterval(interval);
+  }, [hostId, instanceId, eventStreamConnected]);
+
+  // Prefer WebSocket state, fall back to REST state
+  const state = wsState || restState;
 
   return {
     state,
-    connected,
+    connected: eventStreamConnected,
   };
 }
-
-

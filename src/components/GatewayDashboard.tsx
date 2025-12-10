@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Activity, AlertTriangle, CheckCircle2, RefreshCw, RotateCcw, TriangleAlert } from 'lucide-react';
 import solarClient from '@/api/client';
-import { GatewayRequestSummary, GatewayRequestsResponse, GatewayStats } from '@/api/types';
+import { GatewayStats, GatewayRequestSummary } from '@/api/types';
+import { useEventStreamContext } from '@/context/EventStreamContext';
 import { useRoutingEventsContext } from '@/context/RoutingEventsContext';
 import { formatTokenCount } from '@/lib/utils';
 
@@ -13,6 +14,13 @@ function isoInput(dt: Date) {
   const hh = pad(dt.getHours());
   const mi = pad(dt.getMinutes());
   return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+}
+
+// Format date as YYYY-MM-DD HH:MM:SS (24-hour)
+function formatDateTime(dateStr: string): string {
+  const d = new Date(dateStr);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
 type TimePreset = '1h' | '12h' | '1d' | '7d' | '1m' | '1y' | 'custom';
@@ -43,7 +51,6 @@ function calculatePresetDates(preset: TimePreset): { from: string; to: string } 
       break;
     case 'custom':
     default:
-      // Return current values (will be set by state)
       const nowUtc = new Date();
       const startOfToday = new Date(Date.UTC(nowUtc.getUTCFullYear(), nowUtc.getUTCMonth(), nowUtc.getUTCDate(), 0, 0, 0));
       return { from: isoInput(startOfToday), to };
@@ -53,7 +60,12 @@ function calculatePresetDates(preset: TimePreset): { from: string; to: string } 
 }
 
 export function GatewayDashboard() {
-  const { events, addRecentEvents, requests } = useRoutingEventsContext();
+  const { events, addRecentEvents } = useRoutingEventsContext();
+  const { 
+    gatewayRequests, 
+    setFilter, 
+    clearGatewayRequests 
+  } = useEventStreamContext();
 
   // Time range - initialize with 1d preset
   const initialPreset: TimePreset = '1d';
@@ -62,20 +74,30 @@ export function GatewayDashboard() {
   const [from, setFrom] = useState<string>(initialDates.from);
   const [to, setTo] = useState<string>(initialDates.to);
 
-  // Stats
+  // Stats (always fetched via REST for aggregates)
   const [stats, setStats] = useState<GatewayStats | null>(null);
   const [loadingStats, setLoadingStats] = useState(false);
 
-  // Requests
+  // Filters
   const [statusFilter, setStatusFilter] = useState<'all' | 'success' | 'error' | 'missed'>('all');
+  const [requestTypeFilter, setRequestTypeFilter] = useState<string>('all');
+  const [hostFilter, setHostFilter] = useState<string>('all');
+  const [modelFilter, setModelFilter] = useState<string>('all');
+
+  // Historical requests (REST fallback when not live or for pagination)
+  const [historicalRequests, setHistoricalRequests] = useState<GatewayRequestSummary[]>([]);
+  const [loadingReqs, setLoadingReqs] = useState(false);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(15);
-  const [reqResp, setReqResp] = useState<GatewayRequestsResponse | null>(null);
-  const [loadingReqs, setLoadingReqs] = useState(false);
+  const [totalRequests, setTotalRequests] = useState(0);
   const [live, setLive] = useState(true);
 
   const fromIso = useMemo(() => new Date(from).toISOString(), [from]);
   const toIso = useMemo(() => new Date(to).toISOString(), [to]);
+
+  // Available hosts and models from stats
+  const availableHosts = useMemo(() => stats?.hosts?.map(h => ({ id: h.host_id, name: h.host_name || h.host_id })) || [], [stats]);
+  const availableModels = useMemo(() => stats?.models?.map(m => m.model) || [], [stats]);
 
   // Update dates when preset changes
   useEffect(() => {
@@ -86,108 +108,97 @@ export function GatewayDashboard() {
     }
   }, [preset]);
 
-  const refreshStats = async () => {
+  // Update WebSocket filter when local filter changes
+  useEffect(() => {
+    setFilter({
+      status: statusFilter,
+      request_type: requestTypeFilter,
+      host_id: hostFilter !== 'all' ? hostFilter : null,
+      model: modelFilter !== 'all' ? modelFilter : null,
+    });
+    clearGatewayRequests();
+  }, [statusFilter, requestTypeFilter, hostFilter, modelFilter, setFilter, clearGatewayRequests]);
+
+  // Fetch data functions
+  const fetchStats = useCallback(async () => {
     setLoadingStats(true);
     try {
-      const s = await solarClient.getGatewayStats({ from: fromIso, to: toIso });
+      const s = await solarClient.getGatewayStats({ 
+        from: fromIso, 
+        to: toIso,
+        request_type: requestTypeFilter !== 'all' ? requestTypeFilter : undefined,
+      });
       setStats(s);
     } finally {
       setLoadingStats(false);
     }
-  };
+  }, [fromIso, toIso, requestTypeFilter]);
 
-  const refreshRequests = async () => {
+  const fetchRequests = useCallback(async () => {
     setLoadingReqs(true);
     try {
-      const res = await solarClient.listGatewayRequests({ from: fromIso, to: toIso, status: statusFilter, page, limit });
-      setReqResp(res);
+      const res = await solarClient.listGatewayRequests({ 
+        from: fromIso, 
+        to: toIso, 
+        status: statusFilter !== 'all' ? statusFilter : undefined,
+        request_type: requestTypeFilter !== 'all' ? requestTypeFilter : undefined,
+        host_id: hostFilter !== 'all' ? hostFilter : undefined,
+        model: modelFilter !== 'all' ? modelFilter : undefined,
+        page, 
+        limit,
+      });
+      setHistoricalRequests(res.items);
+      setTotalRequests(res.total);
     } finally {
       setLoadingReqs(false);
     }
-  };
+  }, [fromIso, toIso, statusFilter, requestTypeFilter, hostFilter, modelFilter, page, limit]);
 
+  const refreshAll = useCallback(() => {
+    fetchStats();
+    fetchRequests();
+  }, [fetchStats, fetchRequests]);
+
+  // Load data when filters, time range, or pagination change
   useEffect(() => {
-    refreshStats();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fromIso, toIso]);
+    fetchStats();
+    fetchRequests();
+  }, [fetchStats, fetchRequests]);
 
-  useEffect(() => {
-    refreshRequests();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fromIso, toIso, statusFilter, page, limit]);
-
-  // Throttled live refresh on request completion/error events
-  const refreshThrottleRef = useRef<number | null>(null);
-  const completedCount = useMemo(() => {
-    let c = 0;
-    requests.forEach((r) => {
-      if (r.status === 'success' || r.status === 'error') c += 1;
-    });
-    return c;
-  }, [requests]);
-
-  useEffect(() => {
-    // Auto-refresh on request completion regardless of window, while in live mode
-    if (!live) {
-      if (refreshThrottleRef.current !== null) {
-        clearTimeout(refreshThrottleRef.current);
-        refreshThrottleRef.current = null;
-      }
-      return;
-    }
-
-    if (refreshThrottleRef.current !== null) {
-      clearTimeout(refreshThrottleRef.current);
-      refreshThrottleRef.current = null;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      refreshThrottleRef.current = null;
-      if (preset !== 'custom') {
-        const nowIso = isoInput(new Date());
-        setTo(nowIso);
-        const { from: newFrom } = calculatePresetDates(preset);
-        setFrom(newFrom);
-      }
-      refreshRequests();
-      refreshStats();
-    }, 800);
-    refreshThrottleRef.current = timeoutId;
-
-    return () => {
-      clearTimeout(timeoutId);
-      if (refreshThrottleRef.current === timeoutId) {
-        refreshThrottleRef.current = null;
-      }
-    };
-  }, [completedCount, live, preset]);
-
-  // Periodic polling in live mode as a fallback (covers WS reconnect or idle periods)
+  // Periodic refresh when live (every 30s)
   useEffect(() => {
     if (!live) return;
     const id = window.setInterval(() => {
       if (preset !== 'custom') {
-        const nowIso = isoInput(new Date());
-        setTo(nowIso);
-        const { from: newFrom } = calculatePresetDates(preset);
+        const { from: newFrom, to: newTo } = calculatePresetDates(preset);
         setFrom(newFrom);
+        setTo(newTo);
       }
-      refreshRequests();
-      refreshStats();
-    }, 2000);
+    }, 30000);
     return () => window.clearInterval(id);
-  }, [live, fromIso, statusFilter, page, limit, preset]);
+  }, [live, preset]);
 
   // Backfill recent events on mount
   useEffect(() => {
-    handleLoadRecentEvents();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const loadEvents = async () => {
+      const res = await solarClient.getRecentGatewayEvents({ from: fromIso, to: toIso, limit: 1000, types: 'request_error,request_reroute' });
+      addRecentEvents(res.items as unknown as any);
+    };
+    loadEvents();
+  }, [fromIso, toIso, addRecentEvents]);
 
-  const handleLoadRecentEvents = async () => {
-    const res = await solarClient.getRecentGatewayEvents({ from: fromIso, to: toIso, limit: 1000, types: 'request_error,request_reroute' });
-    addRecentEvents(res.items as unknown as any); // same shape as RoutingEvent subset
-  };
+  // Combine requests for display
+  const displayRequests = useMemo(() => {
+    if (!live || page > 1) {
+      return historicalRequests.slice(0, limit);
+    } else {
+      // Merge WebSocket data with historical
+      const wsIds = new Set(gatewayRequests.map(r => r.request_id));
+      const filteredHistorical = historicalRequests.filter(r => !wsIds.has(r.request_id));
+      const merged = [...gatewayRequests, ...filteredHistorical];
+      return merged.slice(0, limit);
+    }
+  }, [live, page, gatewayRequests, historicalRequests, limit]);
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-8">
@@ -201,9 +212,9 @@ export function GatewayDashboard() {
           <button
             onClick={() => setLive((v) => !v)}
             className={`px-3 py-2 rounded ${live ? 'bg-nord-10 text-nord-6' : 'bg-nord-3 text-nord-6 hover:bg-nord-2'}`}
-            title={live ? 'Live updating' : 'Enable live updates'}
+            title={live ? 'Auto-refresh enabled' : 'Enable auto-refresh'}
           >
-            {live ? 'Live' : 'Go Live'}
+            {live ? 'Auto' : 'Manual'}
           </button>
           <div className="flex items-center gap-1">
             {(['1h', '12h', '1d', '7d', '1m', '1y', 'custom'] as TimePreset[]).map((p) => (
@@ -243,8 +254,8 @@ export function GatewayDashboard() {
               />
             </>
           )}
-          <button onClick={refreshStats} className="px-3 py-2 bg-nord-3 text-nord-6 rounded hover:bg-nord-2">
-            <RefreshCw size={16} className={loadingStats ? 'animate-spin' : ''} />
+          <button onClick={refreshAll} className="px-3 py-2 bg-nord-3 text-nord-6 rounded hover:bg-nord-2">
+            <RefreshCw size={16} className={loadingStats || loadingReqs ? 'animate-spin' : ''} />
           </button>
         </div>
       </div>
@@ -282,9 +293,15 @@ export function GatewayDashboard() {
       {/* Live Events */}
       <div className="bg-nord-1 border border-nord-3 rounded">
         <div className="p-4 flex items-center justify-between border-b border-nord-3">
-          <div className="text-nord-6 font-medium">Live Events</div>
+          <div className="text-nord-6 font-medium">Events (Errors & Reroutes)</div>
           <div className="flex items-center gap-2">
-            <button onClick={handleLoadRecentEvents} className="px-3 py-2 bg-nord-3 text-nord-6 rounded hover:bg-nord-2 flex items-center gap-2">
+            <button 
+              onClick={async () => {
+                const res = await solarClient.getRecentGatewayEvents({ from: fromIso, to: toIso, limit: 1000, types: 'request_error,request_reroute' });
+                addRecentEvents(res.items as unknown as any);
+              }} 
+              className="px-3 py-2 bg-nord-3 text-nord-6 rounded hover:bg-nord-2 flex items-center gap-2"
+            >
               <RotateCcw size={16} /> Load recent
             </button>
             <div className="text-sm text-nord-4">{events.length} events</div>
@@ -302,7 +319,7 @@ export function GatewayDashboard() {
                   <TriangleAlert className="text-nord-12" size={16} />
                 )}
                 <div className="text-nord-6">
-                  <span className="text-nord-4">[{(e as any).data?.timestamp || (e as any).timestamp}]</span>{' '}
+                  <span className="text-nord-4">[{formatDateTime((e as any).data?.timestamp || (e as any).timestamp)}]</span>{' '}
                   <span className="uppercase text-xs px-2 py-0.5 rounded bg-nord-2 text-nord-4 mr-2">{e.type}</span>
                   <span>{(e as any).data?.model}</span>
                   {e.type === 'request_reroute' && (
@@ -322,18 +339,50 @@ export function GatewayDashboard() {
       <div className="bg-nord-1 border border-nord-3 rounded">
         <div className="p-4 flex items-center justify-between border-b border-nord-3">
           <div className="text-nord-6 font-medium">Requests</div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <select
               value={statusFilter}
               onChange={(e) => { setPage(1); setStatusFilter(e.target.value as any); }}
               className="bg-nord-2 text-nord-6 border border-nord-3 rounded px-2 py-1"
             >
-              <option value="all">All</option>
+              <option value="all">All Status</option>
               <option value="success">Success</option>
               <option value="error">Error</option>
               <option value="missed">Missed</option>
             </select>
-            <button onClick={refreshRequests} className="px-3 py-2 bg-nord-3 text-nord-6 rounded hover:bg-nord-2">
+            <select
+              value={requestTypeFilter}
+              onChange={(e) => { setPage(1); setRequestTypeFilter(e.target.value); }}
+              className="bg-nord-2 text-nord-6 border border-nord-3 rounded px-2 py-1"
+            >
+              <option value="all">All Types</option>
+              <option value="chat">Chat</option>
+              <option value="completion">Completion</option>
+              <option value="embedding">Embedding</option>
+              <option value="classification">Classification</option>
+              <option value="rerank">Rerank</option>
+            </select>
+            <select
+              value={hostFilter}
+              onChange={(e) => { setPage(1); setHostFilter(e.target.value); }}
+              className="bg-nord-2 text-nord-6 border border-nord-3 rounded px-2 py-1"
+            >
+              <option value="all">All Hosts</option>
+              {availableHosts.map(h => (
+                <option key={h.id} value={h.id}>{h.name}</option>
+              ))}
+            </select>
+            <select
+              value={modelFilter}
+              onChange={(e) => { setPage(1); setModelFilter(e.target.value); }}
+              className="bg-nord-2 text-nord-6 border border-nord-3 rounded px-2 py-1"
+            >
+              <option value="all">All Models</option>
+              {availableModels.map(m => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+            <button onClick={fetchRequests} className="px-3 py-2 bg-nord-3 text-nord-6 rounded hover:bg-nord-2">
               <RefreshCw size={16} className={loadingReqs ? 'animate-spin' : ''} />
             </button>
           </div>
@@ -343,22 +392,26 @@ export function GatewayDashboard() {
             <thead className="bg-nord-2 text-nord-4">
               <tr>
                 <th className="text-left px-3 py-2">Time</th>
+                <th className="text-left px-3 py-2">Type</th>
                 <th className="text-left px-3 py-2">Model</th>
                 <th className="text-left px-3 py-2">Status</th>
                 <th className="text-left px-3 py-2">Host</th>
-                <th className="text-left px-3 py-2">Input tokens</th>
-                <th className="text-left px-3 py-2">Output tokens</th>
-                <th className="text-left px-3 py-2">Total tokens</th>
+                <th className="text-left px-3 py-2">Input</th>
+                <th className="text-left px-3 py-2">Output</th>
                 <th className="text-left px-3 py-2">Duration</th>
                 <th className="text-left px-3 py-2">Attempts</th>
-                <th className="text-left px-3 py-2">Endpoint</th>
               </tr>
             </thead>
             <tbody className="text-nord-6">
-              {reqResp?.items?.length ? (
-                reqResp.items.map((r: GatewayRequestSummary) => (
+              {displayRequests.length ? (
+                displayRequests.map((r: GatewayRequestSummary) => (
                   <tr key={r.request_id} className="border-t border-nord-3">
-                    <td className="px-3 py-2 whitespace-nowrap">{new Date(r.end_timestamp).toLocaleString()}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{formatDateTime(r.end_timestamp)}</td>
+                    <td className="px-3 py-2">
+                      <span className="text-xs px-2 py-0.5 rounded bg-nord-2 text-nord-4">
+                        {r.request_type || 'unknown'}
+                      </span>
+                    </td>
                     <td className="px-3 py-2">{r.resolved_model || r.model}</td>
                     <td className="px-3 py-2">
                       {r.status === 'success' ? (
@@ -372,15 +425,13 @@ export function GatewayDashboard() {
                     <td className="px-3 py-2">{r.host_name || r.host_id || '—'}</td>
                     <td className="px-3 py-2">{formatTokenCount(r.prompt_tokens)}</td>
                     <td className="px-3 py-2">{formatTokenCount(r.completion_tokens)}</td>
-                    <td className="px-3 py-2">{formatTokenCount(r.total_tokens ?? (typeof r.prompt_tokens === 'number' && typeof r.completion_tokens === 'number' ? r.prompt_tokens + r.completion_tokens : undefined))}</td>
                     <td className="px-3 py-2">{r.duration_s?.toFixed(2)}s</td>
                     <td className="px-3 py-2">{r.attempts}</td>
-                    <td className="px-3 py-2">{r.endpoint}</td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={10} className="px-3 py-6 text-center text-nord-4">No data</td>
+                  <td colSpan={9} className="px-3 py-6 text-center text-nord-4">No data</td>
                 </tr>
               )}
             </tbody>
@@ -388,11 +439,11 @@ export function GatewayDashboard() {
         </div>
         <div className="p-3 border-t border-nord-3 flex items-center justify-between text-sm text-nord-4">
           <div>
-            Page {page} • {reqResp?.total ?? 0} total
+            Page {page} • {totalRequests} total
           </div>
           <div className="flex items-center gap-2">
             <button disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} className="px-3 py-1 bg-nord-2 text-nord-6 rounded disabled:opacity-50">Prev</button>
-            <button disabled={(reqResp?.items?.length || 0) < limit} onClick={() => setPage((p) => p + 1)} className="px-3 py-1 bg-nord-2 text-nord-6 rounded disabled:opacity-50">Next</button>
+            <button disabled={displayRequests.length < limit} onClick={() => setPage((p) => p + 1)} className="px-3 py-1 bg-nord-2 text-nord-6 rounded disabled:opacity-50">Next</button>
             <select value={limit} onChange={(e) => { setPage(1); setLimit(parseInt(e.target.value, 10)); }} className="bg-nord-2 text-nord-6 border border-nord-3 rounded px-2 py-1">
               <option value={15}>15</option>
               <option value={25}>25</option>
@@ -467,5 +518,3 @@ export function GatewayDashboard() {
     </div>
   );
 }
-
-

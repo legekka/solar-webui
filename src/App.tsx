@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Navigate, Link, useLocation, Outlet } from 'react-router-dom';
 import { Dashboard } from './components/Dashboard';
 import { RoutingGraph } from './components/RoutingGraph';
 import { GatewayDashboard } from './components/GatewayDashboard';
@@ -8,12 +8,10 @@ import { useRoutingEventsContext } from './context/RoutingEventsContext';
 
 function Navigation() {
   const location = useLocation();
-  let routingConnected = false;
-  let statusConnected = false;
+  let isConnected = false;
   try {
     const ctx = useRoutingEventsContext();
-    routingConnected = ctx.routingConnected;
-    statusConnected = ctx.statusConnected;
+    isConnected = ctx.routingConnected;
   } catch {}
 
   return (
@@ -56,37 +54,40 @@ function Navigation() {
           <Server size={18} />
           Hosts & Instances
         </Link>
-        <div className="ml-auto flex items-center gap-4 text-xs">
-          <div className="flex items-center gap-2">
-            <span className={routingConnected ? 'text-nord-14' : 'text-nord-11'}>●</span>
-            <span className="text-nord-4">Routing WS</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className={statusConnected ? 'text-nord-14' : 'text-nord-11'}>●</span>
-            <span className="text-nord-4">Status WS</span>
-          </div>
+        <div className="ml-auto flex items-center gap-2 text-xs">
+          <span className={isConnected ? 'text-nord-14' : 'text-nord-11'}>●</span>
+          <span className="text-nord-4">Event Stream</span>
         </div>
       </div>
     </nav>
   );
 }
 
-function App() {
+function Layout() {
   return (
-    <BrowserRouter>
       <RoutingEventsProvider>
         <div className="min-h-screen bg-nord-0">
           <Navigation />
-          <Routes>
-            <Route path="/" element={<Navigate to="/routing" replace />} />
-            <Route path="/routing" element={<RoutingGraph />} />
-            <Route path="/gateway" element={<GatewayDashboard />} />
-            <Route path="/hosts" element={<Dashboard />} />
-          </Routes>
+        <Outlet />
         </div>
       </RoutingEventsProvider>
-    </BrowserRouter>
   );
+}
+
+const router = createBrowserRouter([
+  {
+    element: <Layout />,
+    children: [
+      { path: '/', element: <Navigate to="/routing" replace /> },
+      { path: '/routing', element: <RoutingGraph /> },
+      { path: '/gateway', element: <GatewayDashboard /> },
+      { path: '/hosts', element: <Dashboard /> },
+    ],
+  },
+]);
+
+function App() {
+  return <RouterProvider router={router} />;
 }
 
 export default App;

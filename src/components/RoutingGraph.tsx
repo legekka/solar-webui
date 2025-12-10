@@ -13,8 +13,8 @@ import 'reactflow/dist/style.css';
 import { X, Brain, Tags, Server, Binary } from 'lucide-react';
 import { RequestState } from '@/hooks/useRoutingEvents';
 import { useRoutingEventsContext } from '@/context/RoutingEventsContext';
+import { useEventStreamContext } from '@/context/EventStreamContext';
 import { useInstances } from '@/hooks/useInstances';
-import { useInstancesState } from '@/hooks/useInstancesState';
 import { Instance, getBackendType, BackendType } from '@/api/types';
 
 const SOLAR_CONTROL_NODE_ID = 'solar-control';
@@ -84,13 +84,8 @@ interface InstanceData {
 
 export function RoutingGraph() {
   const { requests, removeRequest } = useRoutingEventsContext();
+  const { getInstanceState } = useEventStreamContext();
   const { hosts, loading } = useInstances(10000);
-  const runtimeTargets = hosts.flatMap(h =>
-    h.instances
-      .filter(i => i.status === 'running')
-      .map(i => ({ hostId: h.id, instanceId: i.id }))
-  );
-  const instanceStateMap = useInstancesState(runtimeTargets);
 
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -266,8 +261,7 @@ export function RoutingGraph() {
       const instanceBg = '#88C0D0';
       
       const isProcessing = processingInstances.has(`${hostId}-${instance.id}`);
-      const key = `${hostId}-${instance.id}`;
-      const runtime = instanceStateMap.get(key);
+      const runtime = getInstanceState(hostId, instance.id);
       const phase = runtime?.phase;
       const prefillPct = typeof runtime?.prefill_progress === 'number' ? Math.round(runtime.prefill_progress * 100) : null;
       
@@ -778,7 +772,7 @@ export function RoutingGraph() {
     setNodes(newNodes);
     setEdges(newEdges);
     previousEdgeIdsRef.current = currentEdgeIds;
-  }, [requests, hosts, removeRequest, setNodes, setEdges, instanceStateMap]);
+  }, [requests, hosts, removeRequest, setNodes, setEdges, getInstanceState]);
 
   if (loading) {
     return (

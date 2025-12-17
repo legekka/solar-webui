@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Cpu, Brain, Tags, Binary } from 'lucide-react';
+import { X, Cpu, Brain, MessageSquare, Binary, Tags, Search } from 'lucide-react';
 import { 
   InstanceConfig, 
   BackendType, 
@@ -17,71 +17,79 @@ interface AddInstanceModalProps {
   onCreate: (hostId: string, config: InstanceConfig) => Promise<void>;
 }
 
-type BackendOption = {
-  value: BackendType;
+// Primary backend type
+type PrimaryBackend = 'llamacpp' | 'huggingface';
+
+// Mode types
+type LlamaCppMode = 'llm' | 'embedding' | 'reranker';
+type HuggingFaceMode = 'causal' | 'classifier' | 'embedding';
+
+type ModeOption = {
+  value: string;
   label: string;
   icon: typeof Cpu;
   description: string;
 };
 
-const BACKEND_OPTIONS: BackendOption[] = [
-  { 
-    value: 'llamacpp', 
-    label: 'llama.cpp', 
-    icon: Cpu,
-    description: 'GGUF models with llama-server'
-  },
-  { 
-    value: 'huggingface_causal', 
-    label: 'HuggingFace Causal LM', 
-    icon: Brain,
-    description: 'Text generation models'
-  },
-  { 
-    value: 'huggingface_classification', 
-    label: 'HuggingFace Classifier', 
-    icon: Tags,
-    description: 'Sequence classification models'
-  },
-  { 
-    value: 'huggingface_embedding', 
-    label: 'HuggingFace Embedding', 
-    icon: Binary,
-    description: 'Embedding models (last hidden state)'
-  },
+const LLAMACPP_MODES: ModeOption[] = [
+  { value: 'llm', label: 'Text Generation', icon: MessageSquare, description: 'Chat & text completion' },
+  { value: 'embedding', label: 'Embedding', icon: Binary, description: 'Vector embeddings' },
+  { value: 'reranker', label: 'Reranker', icon: Search, description: 'Document reranking' },
+];
+
+const HUGGINGFACE_MODES: ModeOption[] = [
+  { value: 'causal', label: 'Causal LM', icon: MessageSquare, description: 'Text generation models' },
+  { value: 'classifier', label: 'Classifier', icon: Tags, description: 'Sequence classification' },
+  { value: 'embedding', label: 'Embedding', icon: Binary, description: 'Embedding models' },
 ];
 
 const DEVICE_OPTIONS = ['auto', 'cuda', 'mps', 'cpu'];
 const DTYPE_OPTIONS = ['auto', 'float16', 'bfloat16', 'float32'];
 
-// Default values for each backend type
-const getDefaultConfig = (backendType: BackendType): Partial<InstanceConfig> => {
+// Helper to get BackendType from selections
+const getBackendTypeFromSelection = (primary: PrimaryBackend, mode: string): BackendType => {
+  if (primary === 'llamacpp') {
+    return 'llamacpp';
+  }
+  switch (mode) {
+    case 'causal': return 'huggingface_causal';
+    case 'classifier': return 'huggingface_classification';
+    case 'embedding': return 'huggingface_embedding';
+    default: return 'huggingface_causal';
+  }
+};
+
+// Default values for each configuration
+const getDefaultConfig = (primary: PrimaryBackend, mode: string): Partial<InstanceConfig> => {
   const base = {
     host: '0.0.0.0',
     api_key: 'aiops',
   };
 
-  switch (backendType) {
-    case 'llamacpp':
-      return {
-        ...base,
-        backend_type: 'llamacpp',
-        model: '',
-        alias: '',
-        threads: 1,
-        n_gpu_layers: 999,
-        temp: 1,
-        top_p: 1,
-        top_k: 0,
-        min_p: 0,
-        ctx_size: 131072,
-        chat_template_file: '',
-        special: false,
-        ot: '',
-        model_type: 'llm',
-        pooling: undefined,
-      } as Partial<LlamaCppConfig>;
-    case 'huggingface_causal':
+  if (primary === 'llamacpp') {
+    return {
+      ...base,
+      backend_type: 'llamacpp',
+      model: '',
+      alias: '',
+      threads: 1,
+      n_gpu_layers: 999,
+      temp: 1,
+      top_p: 1,
+      top_k: 0,
+      min_p: 0,
+      ctx_size: 131072,
+      chat_template_file: '',
+      special: false,
+      ot: '',
+      model_type: mode as LlamaCppMode,
+      pooling: undefined,
+    } as Partial<LlamaCppConfig>;
+  }
+
+  // HuggingFace modes
+  switch (mode) {
+    case 'causal':
       return {
         ...base,
         backend_type: 'huggingface_causal',
@@ -93,7 +101,7 @@ const getDefaultConfig = (backendType: BackendType): Partial<InstanceConfig> => 
         trust_remote_code: false,
         use_flash_attention: false,
       } as Partial<HuggingFaceCausalConfig>;
-    case 'huggingface_classification':
+    case 'classifier':
       return {
         ...base,
         backend_type: 'huggingface_classification',
@@ -105,7 +113,7 @@ const getDefaultConfig = (backendType: BackendType): Partial<InstanceConfig> => 
         labels: [],
         trust_remote_code: false,
       } as Partial<HuggingFaceClassificationConfig>;
-    case 'huggingface_embedding':
+    case 'embedding':
       return {
         ...base,
         backend_type: 'huggingface_embedding',
@@ -124,13 +132,29 @@ const getDefaultConfig = (backendType: BackendType): Partial<InstanceConfig> => 
 
 export function AddInstanceModal({ hostId, hostName, onClose, onCreate }: AddInstanceModalProps) {
   const [loading, setLoading] = useState(false);
-  const [backendType, setBackendType] = useState<BackendType>('llamacpp');
-  const [formData, setFormData] = useState<Partial<InstanceConfig>>(getDefaultConfig('llamacpp'));
+  const [primaryBackend, setPrimaryBackend] = useState<PrimaryBackend>('llamacpp');
+  const [llamaCppMode, setLlamaCppMode] = useState<LlamaCppMode>('llm');
+  const [huggingFaceMode, setHuggingFaceMode] = useState<HuggingFaceMode>('causal');
+  const [formData, setFormData] = useState<Partial<InstanceConfig>>(getDefaultConfig('llamacpp', 'llm'));
   const [labelsInput, setLabelsInput] = useState('');
 
-  const handleBackendChange = (newBackend: BackendType) => {
-    setBackendType(newBackend);
-    setFormData(getDefaultConfig(newBackend));
+  const currentMode = primaryBackend === 'llamacpp' ? llamaCppMode : huggingFaceMode;
+  const backendType = getBackendTypeFromSelection(primaryBackend, currentMode);
+
+  const handlePrimaryBackendChange = (newBackend: PrimaryBackend) => {
+    setPrimaryBackend(newBackend);
+    const mode = newBackend === 'llamacpp' ? llamaCppMode : huggingFaceMode;
+    setFormData(getDefaultConfig(newBackend, mode));
+    setLabelsInput('');
+  };
+
+  const handleModeChange = (mode: string) => {
+    if (primaryBackend === 'llamacpp') {
+      setLlamaCppMode(mode as LlamaCppMode);
+    } else {
+      setHuggingFaceMode(mode as HuggingFaceMode);
+    }
+    setFormData(getDefaultConfig(primaryBackend, mode));
     setLabelsInput('');
   };
 
@@ -138,7 +162,7 @@ export function AddInstanceModal({ hostId, hostName, onClose, onCreate }: AddIns
     e.preventDefault();
     
     // Validate required fields based on backend type
-    if (backendType === 'llamacpp') {
+    if (primaryBackend === 'llamacpp') {
       const config = formData as Partial<LlamaCppConfig>;
       if (!config.model || !config.alias) {
         alert('Model Path and Alias are required');
@@ -188,6 +212,8 @@ export function AddInstanceModal({ hostId, hostName, onClose, onCreate }: AddIns
     }));
   };
 
+  const modeOptions = primaryBackend === 'llamacpp' ? LLAMACPP_MODES : HUGGINGFACE_MODES;
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
       <div className="bg-nord-1 rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-nord-3">
@@ -204,31 +230,107 @@ export function AddInstanceModal({ hostId, hostName, onClose, onCreate }: AddIns
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Backend Type Selection */}
+          {/* Step 1: Primary Backend Selection */}
           <div>
             <label className="block text-sm font-medium text-nord-4 mb-3">
-              Backend Type
+              Backend
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              {/* Llama.cpp */}
+              <button
+                type="button"
+                onClick={() => handlePrimaryBackendChange('llamacpp')}
+                className={`p-4 rounded-lg border-2 transition-all text-left ${
+                  primaryBackend === 'llamacpp'
+                    ? 'border-nord-10 bg-nord-10 bg-opacity-15'
+                    : 'border-nord-3 hover:border-nord-4 bg-nord-2'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${primaryBackend === 'llamacpp' ? 'bg-nord-10 bg-opacity-20' : 'bg-nord-3'}`}>
+                    <Cpu 
+                      size={24} 
+                      className={primaryBackend === 'llamacpp' ? 'text-nord-10' : 'text-nord-4'} 
+                    />
+                  </div>
+                  <div>
+                    <div className={`text-base font-semibold ${primaryBackend === 'llamacpp' ? 'text-nord-10' : 'text-nord-6'}`}>
+                      llama.cpp
+                    </div>
+                    <div className="text-xs text-nord-4">
+                      GGUF models with llama-server
+                    </div>
+                  </div>
+                </div>
+              </button>
+
+              {/* HuggingFace */}
+              <button
+                type="button"
+                onClick={() => handlePrimaryBackendChange('huggingface')}
+                className={`p-4 rounded-lg border-2 transition-all text-left ${
+                  primaryBackend === 'huggingface'
+                    ? 'border-nord-14 bg-nord-14 bg-opacity-15'
+                    : 'border-nord-3 hover:border-nord-4 bg-nord-2'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${primaryBackend === 'huggingface' ? 'bg-nord-14 bg-opacity-20' : 'bg-nord-3'}`}>
+                    <Brain 
+                      size={24} 
+                      className={primaryBackend === 'huggingface' ? 'text-nord-14' : 'text-nord-4'} 
+                    />
+                  </div>
+                  <div>
+                    <div className={`text-base font-semibold ${primaryBackend === 'huggingface' ? 'text-nord-14' : 'text-nord-6'}`}>
+                      HuggingFace
+                    </div>
+                    <div className="text-xs text-nord-4">
+                      Transformers models
+                    </div>
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {/* Step 2: Mode Selection */}
+          <div>
+            <label className="block text-sm font-medium text-nord-4 mb-3">
+              Mode
             </label>
             <div className="grid grid-cols-3 gap-3">
-              {BACKEND_OPTIONS.map((option) => {
+              {modeOptions.map((option) => {
                 const Icon = option.icon;
-                const isSelected = backendType === option.value;
+                const isSelected = currentMode === option.value;
+                const accentColor = primaryBackend === 'llamacpp' ? 'nord-10' : 'nord-14';
                 return (
                   <button
                     key={option.value}
                     type="button"
-                    onClick={() => handleBackendChange(option.value)}
-                    className={`p-3 rounded-lg border-2 transition-all text-left ${
+                    onClick={() => handleModeChange(option.value)}
+                    className={`p-3 rounded-lg border-2 transition-all text-center ${
                       isSelected
-                        ? 'border-nord-10 bg-nord-10 bg-opacity-10'
+                        ? `border-${accentColor} bg-${accentColor} bg-opacity-10`
                         : 'border-nord-3 hover:border-nord-4 bg-nord-2'
                     }`}
+                    style={isSelected ? {
+                      borderColor: primaryBackend === 'llamacpp' ? '#81A1C1' : '#A3BE8C',
+                      backgroundColor: primaryBackend === 'llamacpp' ? 'rgba(129, 161, 193, 0.1)' : 'rgba(163, 190, 140, 0.1)',
+                    } : {}}
                   >
                     <Icon 
-                      size={24} 
-                      className={isSelected ? 'text-nord-10' : 'text-nord-4'} 
+                      size={22} 
+                      className={`mx-auto ${isSelected 
+                        ? (primaryBackend === 'llamacpp' ? 'text-nord-10' : 'text-nord-14')
+                        : 'text-nord-4'
+                      }`} 
                     />
-                    <div className={`mt-2 text-sm font-medium ${isSelected ? 'text-nord-10' : 'text-nord-6'}`}>
+                    <div className={`mt-2 text-sm font-medium ${
+                      isSelected 
+                        ? (primaryBackend === 'llamacpp' ? 'text-nord-10' : 'text-nord-14')
+                        : 'text-nord-6'
+                    }`}>
                       {option.label}
                     </div>
                     <div className="text-xs text-nord-4 mt-1">
@@ -240,10 +342,10 @@ export function AddInstanceModal({ hostId, hostName, onClose, onCreate }: AddIns
             </div>
           </div>
 
+          {/* Configuration Fields */}
           <div className="border-t border-nord-3 pt-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Common Fields */}
-              {backendType === 'llamacpp' ? (
+              {primaryBackend === 'llamacpp' ? (
                 /* llama.cpp specific fields */
                 <>
                   {/* Model Path */}
@@ -278,42 +380,46 @@ export function AddInstanceModal({ hostId, hostName, onClose, onCreate }: AddIns
                     />
                   </div>
 
-                  {/* Chat Template File */}
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-nord-4 mb-1">
-                      Chat Template File (Optional)
-                    </label>
-                    <input
-                      type="text"
-                      name="chat_template_file"
-                      value={(formData as Partial<LlamaCppConfig>).chat_template_file || ''}
-                      onChange={handleChange}
-                      placeholder="/path/to/template.jinja"
-                      className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
-                    />
-                  </div>
-
-                  {/* Special Flag */}
-                  <div className="md:col-span-2 flex items-start gap-3">
-                    <div className="flex items-center gap-2">
+                  {/* Chat Template File - only for LLM mode */}
+                  {llamaCppMode === 'llm' && (
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-nord-4 mb-1">
+                        Chat Template File (Optional)
+                      </label>
                       <input
-                        type="checkbox"
-                        id="special"
-                        name="special"
-                        checked={!!(formData as Partial<LlamaCppConfig>).special}
+                        type="text"
+                        name="chat_template_file"
+                        value={(formData as Partial<LlamaCppConfig>).chat_template_file || ''}
                         onChange={handleChange}
-                        className="h-4 w-4 rounded border-nord-3 bg-nord-1 text-nord-10 focus:ring-nord-10"
+                        placeholder="/path/to/template.jinja"
+                        className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
                       />
                     </div>
-                    <div>
-                      <label htmlFor="special" className="block text-sm font-medium text-nord-4 mb-1">
-                        Enable --special flag
-                      </label>
-                      <p className="text-xs text-nord-4">
-                        When enabled, llama-server will be started with the <code>--special</code> flag.
-                      </p>
+                  )}
+
+                  {/* Special Flag - only for LLM mode */}
+                  {llamaCppMode === 'llm' && (
+                    <div className="md:col-span-2 flex items-start gap-3">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="special"
+                          name="special"
+                          checked={!!(formData as Partial<LlamaCppConfig>).special}
+                          onChange={handleChange}
+                          className="h-4 w-4 rounded border-nord-3 bg-nord-1 text-nord-10 focus:ring-nord-10"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="special" className="block text-sm font-medium text-nord-4 mb-1">
+                          Enable --special flag
+                        </label>
+                        <p className="text-xs text-nord-4">
+                          When enabled, llama-server will be started with the <code>--special</code> flag.
+                        </p>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Override Tensor (ot) */}
                   <div className="md:col-span-2">
@@ -333,49 +439,30 @@ export function AddInstanceModal({ hostId, hostName, onClose, onCreate }: AddIns
                     </p>
                   </div>
 
-                  {/* Model Type */}
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-nord-4 mb-1">
-                      Model Type
-                    </label>
-                    <select
-                      name="model_type"
-                      value={(formData as Partial<LlamaCppConfig>).model_type || 'llm'}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
-                    >
-                      <option value="llm">LLM</option>
-                      <option value="embedding">Embedding</option>
-                      <option value="reranker">Reranker</option>
-                    </select>
-                    <p className="text-xs text-nord-4 mt-1">
-                      Select the model type. Embedding and Reranker models will add the respective flags to llama-server.
-                    </p>
-                  </div>
-
-                  {/* Pooling */}
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-nord-4 mb-1">
-                      Pooling (Optional)
-                    </label>
-                    <select
-                      name="pooling"
-                      value={(formData as Partial<LlamaCppConfig>).pooling || ''}
-                      onChange={handleChange}
-                      disabled={(formData as Partial<LlamaCppConfig>).model_type !== 'embedding'}
-                      className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <option value="">Default - Unspecified</option>
-                      <option value="none">None</option>
-                      <option value="mean">Mean</option>
-                      <option value="cls">CLS</option>
-                      <option value="last">Last</option>
-                      <option value="rank">Rank</option>
-                    </select>
-                    <p className="text-xs text-nord-4 mt-1">
-                      Pooling strategy for embedding models. Only valid when Model Type is set to Embedding.
-                    </p>
-                  </div>
+                  {/* Pooling - only for embedding mode */}
+                  {llamaCppMode === 'embedding' && (
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-nord-4 mb-1">
+                        Pooling
+                      </label>
+                      <select
+                        name="pooling"
+                        value={(formData as Partial<LlamaCppConfig>).pooling || ''}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
+                      >
+                        <option value="">Default - Unspecified</option>
+                        <option value="none">None</option>
+                        <option value="mean">Mean</option>
+                        <option value="cls">CLS</option>
+                        <option value="last">Last</option>
+                        <option value="rank">Rank</option>
+                      </select>
+                      <p className="text-xs text-nord-4 mt-1">
+                        Pooling strategy for embedding models.
+                      </p>
+                    </div>
+                  )}
 
                   {/* Threads */}
                   <div>
@@ -423,71 +510,76 @@ export function AddInstanceModal({ hostId, hostName, onClose, onCreate }: AddIns
                     />
                   </div>
 
-                  {/* Temperature */}
-                  <div>
-                    <label className="block text-sm font-medium text-nord-4 mb-1">
-                      Temperature
-                    </label>
-                    <input
-                      type="number"
-                      name="temp"
-                      value={(formData as Partial<LlamaCppConfig>).temp}
-                      onChange={handleChange}
-                      min="0"
-                      max="2"
-                      step="0.01"
-                      className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
-                    />
-                  </div>
+                  {/* LLM-specific sampling parameters */}
+                  {llamaCppMode === 'llm' && (
+                    <>
+                      {/* Temperature */}
+                      <div>
+                        <label className="block text-sm font-medium text-nord-4 mb-1">
+                          Temperature
+                        </label>
+                        <input
+                          type="number"
+                          name="temp"
+                          value={(formData as Partial<LlamaCppConfig>).temp}
+                          onChange={handleChange}
+                          min="0"
+                          max="2"
+                          step="0.01"
+                          className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
+                        />
+                      </div>
 
-                  {/* Top P */}
-                  <div>
-                    <label className="block text-sm font-medium text-nord-4 mb-1">
-                      Top P
-                    </label>
-                    <input
-                      type="number"
-                      name="top_p"
-                      value={(formData as Partial<LlamaCppConfig>).top_p}
-                      onChange={handleChange}
-                      min="0"
-                      max="1"
-                      step="0.01"
-                      className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
-                    />
-                  </div>
+                      {/* Top P */}
+                      <div>
+                        <label className="block text-sm font-medium text-nord-4 mb-1">
+                          Top P
+                        </label>
+                        <input
+                          type="number"
+                          name="top_p"
+                          value={(formData as Partial<LlamaCppConfig>).top_p}
+                          onChange={handleChange}
+                          min="0"
+                          max="1"
+                          step="0.01"
+                          className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
+                        />
+                      </div>
 
-                  {/* Top K */}
-                  <div>
-                    <label className="block text-sm font-medium text-nord-4 mb-1">
-                      Top K
-                    </label>
-                    <input
-                      type="number"
-                      name="top_k"
-                      value={(formData as Partial<LlamaCppConfig>).top_k}
-                      onChange={handleChange}
-                      min="0"
-                      className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
-                    />
-                  </div>
+                      {/* Top K */}
+                      <div>
+                        <label className="block text-sm font-medium text-nord-4 mb-1">
+                          Top K
+                        </label>
+                        <input
+                          type="number"
+                          name="top_k"
+                          value={(formData as Partial<LlamaCppConfig>).top_k}
+                          onChange={handleChange}
+                          min="0"
+                          className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
+                        />
+                      </div>
 
-                  {/* Min P */}
-                  <div>
-                    <label className="block text-sm font-medium text-nord-4 mb-1">
-                      Min P
-                    </label>
-                    <input
-                      type="number"
-                      name="min_p"
-                      value={(formData as Partial<LlamaCppConfig>).min_p}
-                      onChange={handleChange}
-                      min="0"
-                      max="1"
-                      step="0.01"
-                      className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
-                    />
-                  </div>
+                      {/* Min P */}
+                      <div>
+                        <label className="block text-sm font-medium text-nord-4 mb-1">
+                          Min P
+                        </label>
+                        <input
+                          type="number"
+                          name="min_p"
+                          value={(formData as Partial<LlamaCppConfig>).min_p}
+                          onChange={handleChange}
+                          min="0"
+                          max="1"
+                          step="0.01"
+                          className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent"
+                        />
+                      </div>
+                    </>
+                  )}
                 </>
               ) : (
                 /* HuggingFace specific fields */
@@ -581,7 +673,7 @@ export function AddInstanceModal({ hostId, hostName, onClose, onCreate }: AddIns
                   </div>
 
                   {/* Classification-specific: Labels */}
-                  {backendType === 'huggingface_classification' && (
+                  {huggingFaceMode === 'classifier' && (
                     <div className="md:col-span-2">
                       <label className="block text-sm font-medium text-nord-4 mb-1">
                         Labels (Optional)
@@ -600,7 +692,7 @@ export function AddInstanceModal({ hostId, hostName, onClose, onCreate }: AddIns
                   )}
 
                   {/* Embedding-specific: Normalize Embeddings */}
-                  {backendType === 'huggingface_embedding' && (
+                  {huggingFaceMode === 'embedding' && (
                     <div className="flex items-start gap-3">
                       <input
                         type="checkbox"
@@ -642,7 +734,7 @@ export function AddInstanceModal({ hostId, hostName, onClose, onCreate }: AddIns
                   </div>
 
                   {/* Causal-specific: Flash Attention */}
-                  {backendType === 'huggingface_causal' && (
+                  {huggingFaceMode === 'causal' && (
                     <div className="flex items-start gap-3">
                       <input
                         type="checkbox"

@@ -35,6 +35,9 @@ export interface LlamaCppConfig extends BaseInstanceConfig {
   ctx_size: number;
   chat_template_file?: string;
   special?: boolean;
+  ot?: string;
+  model_type?: 'llm' | 'embedding' | 'reranker';
+  pooling?: 'none' | 'mean' | 'cls' | 'last' | 'rank';
 }
 
 // HuggingFace Causal LM config

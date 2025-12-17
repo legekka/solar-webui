@@ -51,6 +51,8 @@ export function EditInstanceModal({ instance, hostId, onClose, onUpdate }: EditI
         ...instance.config,
         backend_type: 'llamacpp',
         special: (instance.config as LlamaCppConfig).special ?? false,
+        model_type: (instance.config as LlamaCppConfig).model_type || 'llm',
+        pooling: (instance.config as LlamaCppConfig).pooling,
       } as LlamaCppConfig;
     }
     return { ...instance.config } as InstanceConfig;
@@ -184,6 +186,70 @@ export function EditInstanceModal({ instance, hostId, onClose, onUpdate }: EditI
                       When enabled, llama-server will be started with the <code>--special</code> flag.
                     </p>
                   </div>
+                </div>
+
+                {/* Override Tensor (ot) */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-nord-4 mb-1">
+                    Override Tensor (ot) (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    name="ot"
+                    value={(formData as LlamaCppConfig).ot || ''}
+                    onChange={handleChange}
+                    placeholder="Override tensor string"
+                    disabled={instance.status !== 'stopped'}
+                    className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 placeholder-nord-4 placeholder:opacity-60 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                  <p className="text-xs text-nord-4 mt-1">
+                    Override tensor string passed to llama-server as <code>-ot</code> flag.
+                  </p>
+                </div>
+
+                {/* Model Type */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-nord-4 mb-1">
+                    Model Type
+                  </label>
+                  <select
+                    name="model_type"
+                    value={(formData as LlamaCppConfig).model_type || 'llm'}
+                    onChange={handleChange}
+                    disabled={instance.status !== 'stopped'}
+                    className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <option value="llm">LLM</option>
+                    <option value="embedding">Embedding</option>
+                    <option value="reranker">Reranker</option>
+                  </select>
+                  <p className="text-xs text-nord-4 mt-1">
+                    Select the model type. Embedding and Reranker models will add the respective flags to llama-server.
+                  </p>
+                </div>
+
+                {/* Pooling */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-nord-4 mb-1">
+                    Pooling (Optional)
+                  </label>
+                  <select
+                    name="pooling"
+                    value={(formData as LlamaCppConfig).pooling || ''}
+                    onChange={handleChange}
+                    disabled={instance.status !== 'stopped' || (formData as LlamaCppConfig).model_type !== 'embedding'}
+                    className="w-full px-3 py-2 bg-nord-2 border border-nord-3 text-nord-6 rounded-md focus:ring-2 focus:ring-nord-10 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <option value="">Default - Unspecified</option>
+                    <option value="none">None</option>
+                    <option value="mean">Mean</option>
+                    <option value="cls">CLS</option>
+                    <option value="last">Last</option>
+                    <option value="rank">Rank</option>
+                  </select>
+                  <p className="text-xs text-nord-4 mt-1">
+                    Pooling strategy for embedding models. Only valid when Model Type is set to Embedding.
+                  </p>
                 </div>
 
                 {/* Alias */}

@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { Play, Square, RotateCw, FileText, Trash2, Edit, Cpu, Brain, Tags, Binary } from 'lucide-react';
+import { Play, Square, RotateCw, FileText, Trash2, Edit, MessageSquare, Tags, Binary, Search } from 'lucide-react';
 import { 
   Instance, 
   InstanceConfig, 
   getBackendType, 
-  getBackendLabel, 
-  getBackendColor,
+  getFullModelLabel, 
+  getFullModelColor,
   isLlamaCppConfig,
   isHuggingFaceCausalConfig,
   isHuggingFaceClassificationConfig,
@@ -14,7 +14,6 @@ import {
   HuggingFaceCausalConfig,
   HuggingFaceClassificationConfig,
   HuggingFaceEmbeddingConfig,
-  BackendType,
 } from '@/api/types';
 import { cn, getStatusColor, formatUptime } from '@/lib/utils';
 import { LogViewer } from './LogViewer';
@@ -31,18 +30,30 @@ interface InstanceCardProps {
   onDelete: (hostId: string, instanceId: string) => Promise<void>;
 }
 
-const BackendIcon = ({ backendType }: { backendType: BackendType }) => {
+const BackendIcon = ({ config }: { config: InstanceConfig }) => {
+  const backendType = getBackendType(config);
+  
+  if (isLlamaCppConfig(config)) {
+    const llamaConfig = config as LlamaCppConfig;
+    switch (llamaConfig.model_type) {
+      case 'embedding':
+        return <Binary size={14} />;
+      case 'reranker':
+        return <Search size={14} />;
+      default:
+        return <MessageSquare size={14} />;
+    }
+  }
+  
   switch (backendType) {
-    case 'llamacpp':
-      return <Cpu size={14} />;
     case 'huggingface_causal':
-      return <Brain size={14} />;
+      return <MessageSquare size={14} />;
     case 'huggingface_classification':
       return <Tags size={14} />;
     case 'huggingface_embedding':
       return <Binary size={14} />;
     default:
-      return <Cpu size={14} />;
+      return <MessageSquare size={14} />;
   }
 };
 
@@ -221,11 +232,11 @@ export function InstanceCard({
             <span
               className={cn(
                 'px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap flex items-center gap-1',
-                getBackendColor(backendType)
+                getFullModelColor(instance.config)
               )}
             >
-              <BackendIcon backendType={backendType} />
-              {getBackendLabel(backendType)}
+              <BackendIcon config={instance.config} />
+              {getFullModelLabel(instance.config)}
             </span>
             {/* Status Badge */}
             <span

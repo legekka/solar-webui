@@ -131,6 +131,88 @@ export function getBackendColor(backendType: BackendType): string {
   }
 }
 
+// Model category type for routing/display purposes
+export type ModelCategory = 'generation' | 'embedding' | 'classification' | 'reranker';
+
+// Get the effective model category considering llama.cpp model_type
+export function getModelCategory(config: InstanceConfig): ModelCategory {
+  if (isLlamaCppConfig(config)) {
+    const llamaConfig = config as LlamaCppConfig;
+    switch (llamaConfig.model_type) {
+      case 'embedding':
+        return 'embedding';
+      case 'reranker':
+        return 'reranker';
+      default:
+        return 'generation';
+    }
+  }
+  if (isHuggingFaceClassificationConfig(config)) {
+    return 'classification';
+  }
+  if (isHuggingFaceEmbeddingConfig(config)) {
+    return 'embedding';
+  }
+  return 'generation';
+}
+
+// Get display label for the full model type (including llama.cpp mode)
+export function getFullModelLabel(config: InstanceConfig): string {
+  if (isLlamaCppConfig(config)) {
+    const llamaConfig = config as LlamaCppConfig;
+    switch (llamaConfig.model_type) {
+      case 'embedding':
+        return 'llama.cpp Embedding';
+      case 'reranker':
+        return 'llama.cpp Reranker';
+      default:
+        return 'llama.cpp';
+    }
+  }
+  return getBackendLabel(getBackendType(config));
+}
+
+// Get color class for the full model type (including llama.cpp mode)
+export function getFullModelColor(config: InstanceConfig): string {
+  if (isLlamaCppConfig(config)) {
+    const llamaConfig = config as LlamaCppConfig;
+    switch (llamaConfig.model_type) {
+      case 'embedding':
+        return 'bg-nord-15 text-nord-6'; // Purple (same as HF Embedding)
+      case 'reranker':
+        return 'bg-nord-12 text-nord-6'; // Orange for reranker
+      default:
+        return 'bg-nord-10 text-nord-6'; // Blue
+    }
+  }
+  return getBackendColor(getBackendType(config));
+}
+
+// Get hex color for the full model type (for ReactFlow nodes)
+export function getFullModelHexColor(config: InstanceConfig): string {
+  if (isLlamaCppConfig(config)) {
+    const llamaConfig = config as LlamaCppConfig;
+    switch (llamaConfig.model_type) {
+      case 'embedding':
+        return '#B48EAD'; // Purple
+      case 'reranker':
+        return '#D08770'; // Orange
+      default:
+        return '#5E81AC'; // Blue
+    }
+  }
+  switch (getBackendType(config)) {
+    case 'huggingface_causal':
+      return '#A3BE8C'; // Green
+    case 'huggingface_classification':
+      return '#EBCB8B'; // Yellow
+    case 'huggingface_embedding':
+      return '#B48EAD'; // Purple
+    default:
+      return '#4C566A';
+  }
+}
+
 export interface Instance {
   id: string;
   config: InstanceConfig;

@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { X, Cpu, Brain, Tags, Binary } from 'lucide-react';
+import { X, MessageSquare, Tags, Binary, Search } from 'lucide-react';
 import { 
   Instance, 
   InstanceConfig, 
   getBackendType, 
-  getBackendLabel,
+  getFullModelLabel,
   isLlamaCppConfig,
   isHuggingFaceCausalConfig,
   isHuggingFaceClassificationConfig,
@@ -13,7 +13,6 @@ import {
   HuggingFaceCausalConfig,
   HuggingFaceClassificationConfig,
   HuggingFaceEmbeddingConfig,
-  BackendType,
 } from '@/api/types';
 
 interface EditInstanceModalProps {
@@ -26,24 +25,35 @@ interface EditInstanceModalProps {
 const DEVICE_OPTIONS = ['auto', 'cuda', 'mps', 'cpu'];
 const DTYPE_OPTIONS = ['auto', 'float16', 'bfloat16', 'float32'];
 
-const BackendIcon = ({ backendType }: { backendType: BackendType }) => {
+const BackendIcon = ({ config }: { config: InstanceConfig }) => {
+  const backendType = getBackendType(config);
+  
+  if (isLlamaCppConfig(config)) {
+    const llamaConfig = config as LlamaCppConfig;
+    switch (llamaConfig.model_type) {
+      case 'embedding':
+        return <Binary size={18} className="text-nord-15" />;
+      case 'reranker':
+        return <Search size={18} className="text-nord-12" />;
+      default:
+        return <MessageSquare size={18} className="text-nord-10" />;
+    }
+  }
+  
   switch (backendType) {
-    case 'llamacpp':
-      return <Cpu size={18} className="text-nord-10" />;
     case 'huggingface_causal':
-      return <Brain size={18} className="text-nord-14" />;
+      return <MessageSquare size={18} className="text-nord-14" />;
     case 'huggingface_classification':
       return <Tags size={18} className="text-nord-13" />;
     case 'huggingface_embedding':
       return <Binary size={18} className="text-nord-15" />;
     default:
-      return <Cpu size={18} className="text-nord-4" />;
+      return <MessageSquare size={18} className="text-nord-4" />;
   }
 };
 
 export function EditInstanceModal({ instance, hostId, onClose, onUpdate }: EditInstanceModalProps) {
   const [loading, setLoading] = useState(false);
-  const backendType = getBackendType(instance.config);
   const [formData, setFormData] = useState<InstanceConfig>(() => {
     // Initialize with correct backend_type and special handling
     if (isLlamaCppConfig(instance.config)) {
@@ -124,8 +134,8 @@ export function EditInstanceModal({ instance, hostId, onClose, onUpdate }: EditI
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-nord-3 sticky top-0 bg-nord-1 z-10">
           <div className="flex items-center gap-2">
-            <BackendIcon backendType={backendType} />
-            <h2 className="text-xl font-bold text-nord-6">Edit {getBackendLabel(backendType)} Instance</h2>
+            <BackendIcon config={instance.config} />
+            <h2 className="text-xl font-bold text-nord-6">Edit {getFullModelLabel(instance.config)} Instance</h2>
           </div>
           <button
             onClick={onClose}

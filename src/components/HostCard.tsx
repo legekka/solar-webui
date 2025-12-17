@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react';
-import { Instance, InstanceConfig, MemoryInfo, getBackendType, BackendType } from '@/api/types';
+import { Instance, InstanceConfig, MemoryInfo, getModelCategory, ModelCategory } from '@/api/types';
 import { cn, getStatusColor, formatDate, getMemoryColor, formatMemoryUsage } from '@/lib/utils';
 import { InstanceCard } from './InstanceCard';
 import { AddInstanceModal } from './AddInstanceModal';
-import { Server, Trash2, Plus, Cpu, Brain, Tags, Binary } from 'lucide-react';
+import { Server, Trash2, Plus, MessageSquare, Brain, Tags, Binary, Search } from 'lucide-react';
 
 interface HostCardProps {
   host: {
@@ -25,18 +25,33 @@ interface HostCardProps {
   onDeleteHost: (hostId: string) => Promise<void>;
 }
 
-const BackendIcon = ({ backendType, size = 14 }: { backendType: BackendType; size?: number }) => {
-  switch (backendType) {
-    case 'llamacpp':
-      return <Cpu size={size} />;
-    case 'huggingface_causal':
-      return <Brain size={size} />;
-    case 'huggingface_classification':
+const CategoryIcon = ({ category, size = 14 }: { category: ModelCategory; size?: number }) => {
+  switch (category) {
+    case 'generation':
+      return <MessageSquare size={size} />;
+    case 'classification':
       return <Tags size={size} />;
-    case 'huggingface_embedding':
+    case 'embedding':
       return <Binary size={size} />;
+    case 'reranker':
+      return <Search size={size} />;
     default:
-      return <Cpu size={size} />;
+      return <Brain size={size} />;
+  }
+};
+
+const getCategoryLabel = (category: ModelCategory): string => {
+  switch (category) {
+    case 'generation':
+      return 'Text Gen';
+    case 'classification':
+      return 'Classifier';
+    case 'embedding':
+      return 'Embedding';
+    case 'reranker':
+      return 'Reranker';
+    default:
+      return category;
   }
 };
 
@@ -53,28 +68,28 @@ export function HostCard({
   const [showAddModal, setShowAddModal] = useState(false);
   const runningCount = host.instances.filter((i) => i.status === 'running').length;
 
-  // Compute backend type counts
-  const backendCounts = useMemo(() => {
-    const counts: Record<BackendType, { total: number; running: number }> = {
-      llamacpp: { total: 0, running: 0 },
-      huggingface_causal: { total: 0, running: 0 },
-      huggingface_classification: { total: 0, running: 0 },
-      huggingface_embedding: { total: 0, running: 0 },
+  // Compute model category counts (generation, embedding, classification, reranker)
+  const categoryCounts = useMemo(() => {
+    const counts: Record<ModelCategory, { total: number; running: number }> = {
+      generation: { total: 0, running: 0 },
+      classification: { total: 0, running: 0 },
+      embedding: { total: 0, running: 0 },
+      reranker: { total: 0, running: 0 },
     };
 
     for (const instance of host.instances) {
-      const bt = getBackendType(instance.config);
-      counts[bt].total++;
+      const category = getModelCategory(instance.config);
+      counts[category].total++;
       if (instance.status === 'running') {
-        counts[bt].running++;
+        counts[category].running++;
       }
     }
 
     return counts;
   }, [host.instances]);
 
-  // Filter backends with instances
-  const activeBackends = (Object.entries(backendCounts) as [BackendType, { total: number; running: number }][])
+  // Filter categories with instances
+  const activeCategories = (Object.entries(categoryCounts) as [ModelCategory, { total: number; running: number }][])
     .filter(([, { total }]) => total > 0);
 
   return (
@@ -114,22 +129,22 @@ export function HostCard({
             <span>
               {runningCount} / {host.instances.length} instances running
             </span>
-            {/* Backend type summary pills */}
-            {activeBackends.length > 0 && (
+            {/* Model category summary pills */}
+            {activeCategories.length > 0 && (
               <div className="flex items-center gap-2">
-                {activeBackends.map(([bt, { total, running }]) => (
+                {activeCategories.map(([category, { total, running }]) => (
                   <span
-                    key={bt}
+                    key={category}
                     className={cn(
                       'px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1',
-                      bt === 'llamacpp' && 'bg-nord-10 bg-opacity-30 text-nord-8',
-                      bt === 'huggingface_causal' && 'bg-nord-14 bg-opacity-30 text-nord-14',
-                      bt === 'huggingface_classification' && 'bg-nord-13 bg-opacity-30 text-nord-13',
-                      bt === 'huggingface_embedding' && 'bg-nord-15 bg-opacity-30 text-nord-15'
+                      category === 'generation' && 'bg-nord-14 bg-opacity-30 text-nord-14',
+                      category === 'classification' && 'bg-nord-13 bg-opacity-30 text-nord-13',
+                      category === 'embedding' && 'bg-nord-15 bg-opacity-30 text-nord-15',
+                      category === 'reranker' && 'bg-nord-12 bg-opacity-30 text-nord-12'
                     )}
-                    title={`${bt === 'llamacpp' ? 'llama.cpp' : bt === 'huggingface_causal' ? 'HuggingFace Causal' : bt === 'huggingface_classification' ? 'HuggingFace Classification' : 'HuggingFace Embedding'}: ${running}/${total}`}
+                    title={`${getCategoryLabel(category)}: ${running}/${total}`}
                   >
-                    <BackendIcon backendType={bt} />
+                    <CategoryIcon category={category} />
                     <span>{running}/{total}</span>
                   </span>
                 ))}

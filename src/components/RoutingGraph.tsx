@@ -10,17 +10,18 @@ import ReactFlow, {
   Position,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { X, Brain, Tags, Server, Binary } from 'lucide-react';
+import { X, Tags, Server, Binary, Search, MessageSquare } from 'lucide-react';
 import { RequestState } from '@/hooks/useRoutingEvents';
 import { useRoutingEventsContext } from '@/context/RoutingEventsContext';
 import { useEventStreamContext } from '@/context/EventStreamContext';
 import { useInstances } from '@/hooks/useInstances';
-import { Instance, getBackendType, BackendType } from '@/api/types';
+import { Instance, getBackendType, getModelCategory, getFullModelLabel, getFullModelHexColor } from '@/api/types';
 
 const SOLAR_CONTROL_NODE_ID = 'solar-control';
 const GROUP_GENERATION_ID = 'group-generation';
 const GROUP_CLASSIFICATION_ID = 'group-classification';
 const GROUP_EMBEDDING_ID = 'group-embedding';
+const GROUP_RERANKER_ID = 'group-reranker';
 
 function getStatusColor(status: RequestState['status']): string {
   switch (status) {
@@ -50,30 +51,15 @@ function getBrighterColor(color: string): string {
   return `#${brighterR.toString(16).padStart(2, '0')}${brighterG.toString(16).padStart(2, '0')}${brighterB.toString(16).padStart(2, '0')}`;
 }
 
-function getInstanceCategory(instance: Instance): 'generation' | 'classification' | 'embedding' {
-  const backendType = getBackendType(instance.config);
-  if (backendType === 'huggingface_classification') {
-    return 'classification';
-  }
-  if (backendType === 'huggingface_embedding') {
-    return 'embedding';
-  }
-  return 'generation';
+function getInstanceCategory(instance: Instance): 'generation' | 'classification' | 'embedding' | 'reranker' {
+  return getModelCategory(instance.config);
 }
 
-function getBackendDisplay(backendType: BackendType): { color: string; label: string } {
-  switch (backendType) {
-    case 'llamacpp':
-      return { color: '#5E81AC', label: 'llama.cpp' };
-    case 'huggingface_causal':
-      return { color: '#A3BE8C', label: 'HF Causal' };
-    case 'huggingface_classification':
-      return { color: '#EBCB8B', label: 'HF Classifier' };
-    case 'huggingface_embedding':
-      return { color: '#B48EAD', label: 'HF Embedding' };
-    default:
-      return { color: '#4C566A', label: 'Unknown' };
-  }
+function getBackendDisplay(instance: Instance): { color: string; label: string } {
+  return {
+    color: getFullModelHexColor(instance.config),
+    label: getFullModelLabel(instance.config),
+  };
 }
 
 interface InstanceData {
@@ -112,6 +98,7 @@ export function RoutingGraph() {
     const generationByHost = new Map<string, { hostName: string; hostStatus: string; instances: InstanceData[] }>();
     const classificationByHost = new Map<string, { hostName: string; hostStatus: string; instances: InstanceData[] }>();
     const embeddingByHost = new Map<string, { hostName: string; hostStatus: string; instances: InstanceData[] }>();
+    const rerankerByHost = new Map<string, { hostName: string; hostStatus: string; instances: InstanceData[] }>();
 
     hosts.forEach(host => {
       host.instances
@@ -130,6 +117,11 @@ export function RoutingGraph() {
               embeddingByHost.set(host.id, { hostName: host.name, hostStatus: host.status, instances: [] });
             }
             embeddingByHost.get(host.id)!.instances.push(item);
+          } else if (category === 'reranker') {
+            if (!rerankerByHost.has(host.id)) {
+              rerankerByHost.set(host.id, { hostName: host.name, hostStatus: host.status, instances: [] });
+            }
+            rerankerByHost.get(host.id)!.instances.push(item);
           } else {
             if (!generationByHost.has(host.id)) {
               generationByHost.set(host.id, { hostName: host.name, hostStatus: host.status, instances: [] });
@@ -140,7 +132,7 @@ export function RoutingGraph() {
     });
 
     // Calculate max alias length for dynamic width
-    const allInstances = [...generationByHost.values(), ...classificationByHost.values(), ...embeddingByHost.values()]
+    const allInstances = [...generationByHost.values(), ...classificationByHost.values(), ...embeddingByHost.values(), ...rerankerByHost.values()]
       .flatMap(data => data.instances);
     const maxAliasLength = allInstances.reduce((max, { instance }) => 
       Math.max(max, instance.config.alias.length), 0);
@@ -182,6 +174,16 @@ export function RoutingGraph() {
       });
     });
 
+    rerankerByHost.forEach((data, hostId) => {
+      const hostNodeId = `host-rerank-${hostId}`;
+      hostToGroup.set(hostNodeId, GROUP_RERANKER_ID);
+      data.instances.forEach(({ instance }) => {
+        const instanceNodeId = `instance-${hostId}-${instance.id}`;
+        instanceToHost.set(instanceNodeId, hostNodeId);
+        instanceToGroup.set(instanceNodeId, GROUP_RERANKER_ID);
+      });
+    });
+
     const solarControlBg = '#5E81AC';
 
     // Layout positions (increased spacing for cleaner look)
@@ -213,9 +215,16 @@ export function RoutingGraph() {
     });
     if (embedTotalHeight > 0) embedTotalHeight -= hostGap;
 
+    let rerankTotalHeight = 0;
+    rerankerByHost.forEach(data => {
+      rerankTotalHeight += data.instances.length * instanceHeight + hostGap;
+    });
+    if (rerankTotalHeight > 0) rerankTotalHeight -= hostGap;
+
     const totalHeight = genTotalHeight 
       + (genTotalHeight > 0 && classTotalHeight > 0 ? groupGap : 0) + classTotalHeight
-      + ((genTotalHeight > 0 || classTotalHeight > 0) && embedTotalHeight > 0 ? groupGap : 0) + embedTotalHeight;
+      + ((genTotalHeight > 0 || classTotalHeight > 0) && embedTotalHeight > 0 ? groupGap : 0) + embedTotalHeight
+      + ((genTotalHeight > 0 || classTotalHeight > 0 || embedTotalHeight > 0) && rerankTotalHeight > 0 ? groupGap : 0) + rerankTotalHeight;
     const startY = 100;
     const controlY = startY + totalHeight / 2 - 50;
 
@@ -257,7 +266,7 @@ export function RoutingGraph() {
     ): string => {
       const instanceNodeId = `instance-${hostId}-${instance.id}`;
       const backendType = getBackendType(instance.config);
-      const backendDisplay = getBackendDisplay(backendType);
+      const backendDisplay = getBackendDisplay(instance);
       const instanceBg = '#88C0D0';
       
       const isProcessing = processingInstances.has(`${hostId}-${instance.id}`);
@@ -343,7 +352,7 @@ export function RoutingGraph() {
         data: {
           label: (
             <div className="flex items-center gap-2 px-3 py-1.5">
-              <Brain size={14} className="text-nord-14" />
+              <MessageSquare size={14} className="text-nord-14" />
               <span className="font-semibold text-sm whitespace-nowrap">Text Generation</span>
             </div>
           ),
@@ -642,9 +651,115 @@ export function RoutingGraph() {
 
         hostY += hostHeight + hostGap;
       });
+
+      currentY = hostY + groupGap - hostGap;
     }
 
-    // 5. Request nodes (left side)
+    // 5. Reranker section
+    if (rerankerByHost.size > 0) {
+      const rerankStartY = currentY;
+      const groupCenterY = rerankStartY + rerankTotalHeight / 2 - 20;
+      
+      // Group node
+      newNodes.push({
+        id: GROUP_RERANKER_ID,
+        type: 'default',
+        position: { x: groupX, y: groupCenterY },
+        sourcePosition: Position.Right,
+        targetPosition: Position.Left,
+        data: {
+          label: (
+            <div className="flex items-center gap-2 px-3 py-1.5">
+              <Search size={14} className="text-nord-12" />
+              <span className="font-semibold text-sm whitespace-nowrap">Reranker</span>
+            </div>
+          ),
+        },
+        style: {
+          background: 'linear-gradient(135deg, #3B4252 0%, #434C5E 100%)',
+          color: '#ECEFF4',
+          border: '1px solid #D08770',
+          borderRadius: '8px',
+          width: 175,
+        },
+      });
+
+      // Edge: Solar Control → Reranker Group
+      newEdges.push({
+        id: `control-to-rerank-group`,
+        source: SOLAR_CONTROL_NODE_ID,
+        target: GROUP_RERANKER_ID,
+        animated: false,
+        style: { stroke: '#4C566A', strokeWidth: 1 },
+      });
+
+      // Hosts and instances
+      let hostY = rerankStartY;
+      rerankerByHost.forEach((data, hostId) => {
+        const hostNodeId = `host-rerank-${hostId}`;
+        const hostInstanceCount = data.instances.length;
+        const hostHeight = hostInstanceCount * instanceHeight;
+        const hostCenterY = hostY + hostHeight / 2 - 15;
+
+        // Host node - green when online, grey when offline
+        const hostBg = data.hostStatus === 'online' ? '#A3BE8C' : '#434C5E';
+        const hostTextColor = data.hostStatus === 'online' ? '#2E3440' : '#D8DEE9';
+        const hostBorder = data.hostStatus === 'online' ? '#8CAA7E' : '#4C566A';
+
+        newNodes.push({
+          id: hostNodeId,
+          type: 'default',
+          position: { x: hostX, y: hostCenterY },
+          sourcePosition: Position.Right,
+          targetPosition: Position.Left,
+          data: {
+            label: (
+              <div className="flex items-center gap-1.5 px-2 py-1">
+                <Server size={12} style={{ opacity: 0.8 }} />
+                <span className="font-medium text-xs">{data.hostName}</span>
+              </div>
+            ),
+          },
+          style: {
+            background: hostBg,
+            color: hostTextColor,
+            border: `1px solid ${hostBorder}`,
+            borderRadius: '6px',
+            width: 180,
+          },
+        });
+
+        // Edge: Group → Host
+        newEdges.push({
+          id: `rerank-group-to-${hostNodeId}`,
+          source: GROUP_RERANKER_ID,
+          target: hostNodeId,
+          animated: false,
+          style: { stroke: '#4C566A', strokeWidth: 1 },
+        });
+
+        // Instances
+        let instanceY = hostY;
+        data.instances.forEach(({ instance }) => {
+          const instanceNodeId = createInstanceNode(hostId, instance, instanceX, instanceY);
+          
+          // Edge: Host → Instance
+          newEdges.push({
+            id: `${hostNodeId}-to-${instanceNodeId}`,
+            source: hostNodeId,
+            target: instanceNodeId,
+            animated: false,
+            style: { stroke: '#4C566A', strokeWidth: 1 },
+          });
+          
+          instanceY += instanceHeight;
+        });
+
+        hostY += hostHeight + hostGap;
+      });
+    }
+
+    // 6. Request nodes (left side)
     const requestArray = Array.from(requests.values());
     requestArray.forEach((request, index) => {
       const yOffset = 80 + index * 100;
@@ -825,6 +940,7 @@ export function RoutingGraph() {
               if (node.id === GROUP_GENERATION_ID) return '#A3BE8C';
               if (node.id === GROUP_CLASSIFICATION_ID) return '#EBCB8B';
               if (node.id === GROUP_EMBEDDING_ID) return '#B48EAD';
+              if (node.id === GROUP_RERANKER_ID) return '#D08770';
               if (node.id.startsWith('host-')) return '#434C5E';
               if (node.id.startsWith('request-')) return node.style?.background as string || '#4C566A';
               return '#88C0D0';
